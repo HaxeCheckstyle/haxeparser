@@ -983,7 +983,9 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 
 	function block2(name:String, ident:Constant, p:Position) {
 		return switch stream {
-			case [{tok:DblDot}, e = expr(), l = parseObjDecl()]: EObjectDecl(aadd(l, {field:name, expr:e}));
+			case [{tok:DblDot}, e = expr(), l = parseObjDecl()]:
+				l.unshift({field:name, expr:e});
+				EObjectDecl(l);
 			case _:
 				var e = exprNext({expr:EConst(ident), pos: p});
 				var _ = semicolon();
@@ -1010,15 +1012,24 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 	}
 
 	function parseObjDecl() {
-		return switch stream {
-			case [{tok:Comma}]:
-				switch stream {
-					case [id = ident(), {tok:DblDot}, e = expr(), l = parseObjDecl()]: aadd(l, {field:id.name, expr: e});
-					case [{tok:Const(CString(name))}, {tok:DblDot}, e = expr(), l = parseObjDecl()]: aadd(l,{field:quoteIdent(name), expr: e});
-					case _: [];
-				}
-			case _: [];
+		var acc = [];
+		while(true) {
+			switch stream {
+				case [{tok:Comma}]:
+					switch stream {
+						case [id = ident(), {tok:DblDot}, e = expr()]:
+							acc.push({field:id.name, expr: e});
+						case [{tok:Const(CString(name))}, {tok:DblDot}, e = expr()]:
+							//aadd(l,{field:quoteIdent(name), expr: e});
+							acc.push({field:quoteIdent(name), expr: e});
+						case _:
+							break;
+					}
+				case _:
+					break;
+			}
 		}
+		return acc;
 	}
 
 	function parseArrayDecl() {
