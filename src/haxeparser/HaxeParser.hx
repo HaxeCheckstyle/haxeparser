@@ -1087,7 +1087,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 		}
 	}
 
-	function expr():Expr {
+	public function expr():Expr {
 		return switch stream {
 			case [meta = parseMetaEntry()]:
 				makeMeta(meta.name, meta.params, secureExpr(), meta.pos);
@@ -1139,14 +1139,14 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 				function neg(s:String) {
 					return s.charCodeAt(0) == '-'.code
 						? s.substr(1)
-						: s;
+						: "-" + s;
 				}
 				switch (makeUnop(OpNeg,e,p1)) {
 					case {expr:EUnop(OpNeg,false,{expr:EConst(CInt(i))}), pos:p}:
 						{expr:EConst(CInt(neg(i))), pos:p};
 					case {expr:EUnop(OpNeg,false,{expr:EConst(CFloat(j))}), pos:p}:
 						{expr:EConst(CFloat(neg(j))), pos:p};
-					case _: e;
+					case e: e;
 				}
 			case [{tok:Kwd(KwdFor), pos:p}, {tok:POpen}, it = expr(), {tok:PClose}]:
 				var e = secureExpr();
