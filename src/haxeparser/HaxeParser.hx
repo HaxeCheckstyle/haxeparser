@@ -522,6 +522,19 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 							flags: c.map(function(i) return i.e),
 							data: t
 						}), pos: punion(p1,p2)};
+					case [{tok:Kwd(KwdAbstract), pos:p1}, name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = plist(parseAbstractRelations), {tok:BrOpen}, fl = parseClassFields(false, p1)]:
+						var flags = c.map(function(flag) return switch(flag.e) { case EPrivate: APrivAbstract; case EExtern: throw 'extern abstract is not allowed'; });
+						if (st != null) {
+							flags.push(AIsType(st));
+						}
+						{ decl: EAbstract({
+							name: name,
+							doc: doc,
+							meta: meta,
+							params: tl,
+							flags: flags.concat(sl),
+							data: fl.fields
+						}), pos: punion(p1, fl.pos)};
 				}
 		}
 	}
@@ -576,6 +589,20 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 					}
 				case _: unexpected();
 			}
+		}
+	}
+	
+	function parseAbstractRelations() {
+		return switch stream {
+			case [{tok:Const(CIdent("to"))}, t = parseComplexType()]: AToType(t);
+			case [{tok:Const(CIdent("from"))}, t = parseComplexType()]: AFromType(t);
+		}
+	}
+	
+	function parseAbstractSubtype() {
+		return switch stream {
+			case [{tok:POpen}, t = parseComplexType(), {tok:PClose}]: t;
+			case _: null;
 		}
 	}
 

@@ -140,6 +140,7 @@ typedef Definition<A,B> = {
 enum TypeDef {
 	EClass(d:Definition<ClassFlag, Array<Field>>);
 	EEnum(d:Definition<EnumFlag, Array<EnumConstructor>>);
+	EAbstract(a:Definition<AbstractFlag, Array<Field>>);
 	EImport(sl:Array<{pack:String, pos:Position}>, mode:ImportMode);
 	ETypedef(d:Definition<EnumFlag, ComplexType>);
 	EUsing(path:TypePath);
@@ -151,6 +152,13 @@ enum ClassFlag {
 	HPrivate;
 	HExtends(t:TypePath);
 	HImplements(t:TypePath);
+}
+
+enum AbstractFlag {
+	APrivAbstract;
+	AFromType(ct:ComplexType);
+	AToType(ct:ComplexType);
+	AIsType(ct:ComplexType);
 }
 
 enum EnumFlag {

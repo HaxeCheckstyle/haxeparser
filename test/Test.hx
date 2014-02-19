@@ -289,6 +289,16 @@ class Test extends haxe.unit.TestCase {
 		peq("enum E {A(a:Int, b:String, c:Float):E<T>;B:Int;}");
 	}
 	
+	function testAbstract() {
+		peq("abstract A {}");
+		peq("abstract A(B) {}");
+		peq("abstract A(B) from C {}");
+		peq("abstract A(B) from C from D {}");
+		peq("abstract A(B) from C from D to E {}");
+		peq("abstract A(B) from C from D to E to F {}");
+		peq("abstract A<S, T>(B<S>) from C<T> from D to E to F {}");
+	}
+	
 	function testConditionals() {
 		eeq("#if true 1 #else 2 #end", "1");
 		eeq("#if false 1 #else 2 #end", "2");

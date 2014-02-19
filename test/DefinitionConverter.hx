@@ -8,6 +8,7 @@ class DefinitionConverter {
 		return switch(t) {
 			case EClass(d): convertClass(d);
 			case EEnum(d): convertEnum(d);
+			case EAbstract(d): convertAbstract(d);
 			//case ETypedef(d): convertTypedef(d);
 			case _: throw 'Cannot convert $t';
 		}
@@ -45,6 +46,24 @@ class DefinitionConverter {
 		return def;
 	}
 	
+	static function convertAbstract(a:Definition<AbstractFlag, Array<Field>>) {
+		var def = getGeneralDefinition(a);
+		var to = [];
+		var from = [];
+		var thisT = null;
+		for (flag in a.flags) {
+			switch(flag) {
+				case AFromType(t): from.push(t);
+				case AToType(t): to.push(t);
+				case AIsType(t): thisT = t;
+				case APrivAbstract:
+			}
+		}
+		def.fields = a.data;
+		def.kind = TDAbstract(thisT, from, to);
+		return def;
+	}
+
 	static function enumConstructorToClassField(ctor:EnumConstructor) {
 		var kind = if(ctor.args.length == 0) {
 			FVar(ctor.type, null);
