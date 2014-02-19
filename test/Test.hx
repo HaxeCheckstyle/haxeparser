@@ -1,5 +1,7 @@
 class Test extends haxe.unit.TestCase {
 	
+	static var whitespaceEreg = ~/[\t\n\r]*/g;
+	
 	static function main() {
 		var r = new haxe.unit.TestRunner();
 		r.add(new Test());
@@ -189,6 +191,6 @@ class Test extends haxe.unit.TestCase {
 		if (expectedCode == null) {
 			expectedCode = inputCode;
 		}
-		assertEquals(expectedCode, inputParsed, p);
+		assertEquals(whitespaceEreg.replace(expectedCode, ""), whitespaceEreg.replace(inputParsed, ""), p);
 	}
 }
