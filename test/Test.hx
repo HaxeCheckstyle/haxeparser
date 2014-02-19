@@ -129,6 +129,33 @@ class Test extends haxe.unit.TestCase {
 		eeq("~1");
 	}
 	
+	function testVars() {
+		eeq("var x");
+		eeq("var x = 1");
+	}
+	
+	function testFunction() {
+		eeq("function() null");
+		eeq("function(x) null");
+		eeq("function(x, y) null");
+		eeq("function(x = 0, y) null");
+		eeq("function(x, y = 0) null");
+		eeq("function(x = 0, y = 0) null");
+		eeq("function(x:Int, y) null");
+		eeq("function(x, y:Int) null");
+		eeq("function(x:Int, y:Int) null");
+		
+		eeq("function f() null");
+		eeq("function f(x) null");
+		eeq("function f(x, y) null");
+		eeq("function f(x = 0, y) null");
+		eeq("function f(x, y = 0) null");
+		eeq("function f(x = 0, y = 0) null");
+		eeq("function f(x:Int, y) null");
+		eeq("function f(x, y:Int) null");
+		eeq("function f(x:Int, y:Int) null");
+	}
+	
 	function testConditionals() {
 		eeq("#if true 1 #else 2 #end", "1");
 		eeq("#if false 1 #else 2 #end", "2");
