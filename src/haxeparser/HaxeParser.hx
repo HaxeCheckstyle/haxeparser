@@ -634,7 +634,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 			case [{tok:Kwd(k), pos:p}]: {name: k.getName().toLowerCase(), pos:p};
 			case [{tok:DblDot}]:
 				switch stream {
-					case [{tok:Const(CIdent(i)), pos:p}]: {name: i, pos: p};
+					case [{tok:Const(CIdent(i)), pos:p}]: {name: ':$i', pos: p};
 
 				}
 		}
