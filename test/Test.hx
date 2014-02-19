@@ -172,6 +172,72 @@ class Test extends haxe.unit.TestCase {
 		eeq("{var x:Int = 0, y:Int = 0;}");
 	}
 	
+	function testFor() {
+		eeq("for (a) b");
+	}
+	
+	function testIn() {
+		eeq("a in b");
+	}
+	
+	function testIf() {
+		eeq("if (a) b");
+		eeq("if (a) b else c");
+		eeq("if (a) b else if (c) d else e");
+	}
+	
+	function testWhile() {
+		eeq("while (a) b");
+		eeq("do a while (b)");
+	}
+	
+	//function testSwitch() {
+		//eeq("switch (a) {}");
+		//eeq("switch (a) {case 1:2; case 2:3;}");
+	//}
+	
+	function testTry() {
+		eeq("try a catch(b:C) d");
+		eeq("try a catch(b:C) d catch(e:F) g");
+	}
+	
+	function testReturn() {
+		eeq("return");
+		eeq("return x");
+	}
+	
+	function testBreak() {
+		eeq("break");
+	}
+	
+	function testContinue() {
+		eeq("continue");
+	}
+	
+	function testUntyped() {
+		eeq("untyped a");
+	}
+	
+	function testThrow() {
+		eeq("throw a");
+	}
+	
+	function testCast() {
+		eeq("cast a");
+		eeq("cast(a, B)");
+	}
+	
+	function testTernary() {
+		eeq("a ? b : c");
+		eeq("a ? b : c ? d : e");
+	}
+	
+	function testMeta() {
+		eeq("@:meta a");
+		eeq("@:meta(a) b");
+		eeq("@:meta(a, b) c");
+	}
+	
 	function testPackage() {
 		assertEquals(0, parseFile("package;").pack.length);
 		assertEquals(1, parseFile("package x;").pack.length);
