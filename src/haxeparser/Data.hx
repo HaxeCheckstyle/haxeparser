@@ -73,6 +73,37 @@ enum TokenDef {
 	Eof;
 }
 
+class TokenDefPrinter {
+	static public function print(def:TokenDef) {
+		return switch(def) {
+			case Kwd(k): k.getName().substr(4).toLowerCase();
+			case Const(CInt(s) | CFloat(s) | CString(s) | CIdent(s)): s;
+			case Const(CRegexp(r, opt)): '~/$r/$opt';
+			case Sharp(s): '#$s';
+			case Dollar(s): '$$$s';
+			case Unop(op): new haxe.macro.Printer("").printUnop(op);
+			case Binop(op): new haxe.macro.Printer("").printBinop(op);
+			case Comment(s): '/*$s/*';
+			case CommentLine(s): '//$s';
+			case IntInterval(s): '$s...';
+			case Semicolon: ";";
+			case Dot: ".";
+			case DblDot: ":";
+			case Arrow: "->";
+			case Comma: ",";
+			case BkOpen: "[";
+			case BkClose: "]";
+			case BrOpen: "{";
+			case BrClose: "}";
+			case POpen: "(";
+			case PClose: ")";
+			case Question: "?";
+			case At: "@";
+			case Eof: "<eof>";
+		}
+	}
+}
+
 class Token {
 	public var tok: TokenDef;
 	public var pos: Position;
@@ -80,6 +111,10 @@ class Token {
 	public function new(tok, pos) {
 		this.tok = tok;
 		this.pos = pos;
+	}
+	
+	public function toString() {
+		return TokenDefPrinter.print(tok);
 	}
 }
 
