@@ -128,6 +128,13 @@ class Test extends haxe.unit.TestCase {
 		eeq("-1");
 		eeq("~1");
 	}
+	
+	function testConditionals() {
+		eeq("#if true 1 #else 2 #end", "1");
+		eeq("#if false 1 #else 2 #end", "2");
+		eeq("#if false 1 #elseif true 2 #end", "2");
+		eeq("#if false 1 #elseif false 2 #else 3 #end", "3");
+	}
 		
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
@@ -135,8 +142,11 @@ class Test extends haxe.unit.TestCase {
 		return haxe.macro.ExprTools.toString(expr);
 	}
 	
-	function eeq(inputCode:String, ?p:haxe.PosInfos) {
+	function eeq(inputCode:String, ?expectedCode:String, ?p:haxe.PosInfos) {
 		var inputParsed = parseExpr(inputCode, p);
-		assertEquals(inputCode, inputParsed, p);
+		if (expectedCode == null) {
+			expectedCode = inputCode;
+		}
+		assertEquals(expectedCode, inputParsed, p);
 	}
 }
