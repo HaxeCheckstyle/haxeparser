@@ -56,8 +56,9 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 		{
 			var tk = super.peek(0);
 			switch tk {
-				case {tok:CommentLine(_) | Sharp("error" | "line")}:
-					next();
+				case {tok:CommentLine(_) | Comment(_) | Sharp("error" | "line")}:
+					junk();
+					peek(0);
 				case {tok:Sharp("end")}:
 					junk();
 					if (mstack.length == 0) tk;

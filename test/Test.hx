@@ -156,6 +156,15 @@ class Test extends haxe.unit.TestCase {
 		eeq("function f(x:Int, y:Int) null");
 	}
 	
+	function testPackage() {
+		assertEquals(0, parseFile("package;").pack.length);
+		assertEquals(1, parseFile("package x;").pack.length);
+		assertEquals(1, parseFile(
+		    "//test\n"
+		  + "package x;"
+		).pack.length);
+	}
+	
 	function testConditionals() {
 		eeq("#if true 1 #else 2 #end", "1");
 		eeq("#if false 1 #else 2 #end", "2");
@@ -167,6 +176,12 @@ class Test extends haxe.unit.TestCase {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();
 		return haxe.macro.ExprTools.toString(expr);
+	}
+	
+	static function parseFile(inputCode:String, ?p:haxe.PosInfos) {
+		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
+		var expr = parser.parse();
+		return expr;
 	}
 	
 	function eeq(inputCode:String, ?expectedCode:String, ?p:haxe.PosInfos) {
