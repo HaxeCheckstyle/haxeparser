@@ -1,0 +1,11 @@
+-cp src
+-cp test
+-main Test
+-lib hxparse
+--each
+
+--next
+--interp
+
+--next
+-swf bin/swf9.swf
