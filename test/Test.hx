@@ -247,6 +247,48 @@ class Test extends haxe.unit.TestCase {
 		).pack.length);
 	}
 	
+	function testClass() {
+		peq("class C {}");
+		peq("class C extends D {}");
+		peq("class C extends p.D {}");
+		peq("class C implements p.A {}");
+		peq("class C implements A implements B {}");
+		peq("class C extends A implements B implements C {}");
+		peq("class C<A> {}");
+		peq("class C<A, B> {}");
+		peq("class C<A:(Int), B:(Float, String)> {}");
+	}
+	
+	function testInterface() {
+		peq("interface I {}");
+		peq("interface I extends p.D {}");
+	}
+	
+	function testClassField() {
+		peq("class C {var a;}");
+		peq("class C {function f();}");
+		peq("class C {function f(a);}");
+		peq("class C {function f(a, b);}");
+		peq("class C {var a;var b;}");
+		peq("class C {var a(default, null);}");
+	}
+	
+	function testEnum() {
+		peq("enum E {}");
+		peq("enum E<A> {}");
+		peq("enum E<A, B> {}");
+		peq("enum E<A:(Int), B:(Float, String)> {}");
+	}
+	
+	function testEnumField() {
+		peq("enum E {A;B;C;}");
+		peq("enum E {A:Int;B;C:Float;}");
+		peq("enum E {A(a:Int);}");
+		peq("enum E {A(a:Int, b:String, c:Float);}");
+		peq("enum E {A(a:Int, b:String, c:Float);B:Int;}");
+		peq("enum E {A(a:Int, b:String, c:Float):E<T>;B:Int;}");
+	}
+	
 	function testConditionals() {
 		eeq("#if true 1 #else 2 #end", "1");
 		eeq("#if false 1 #else 2 #end", "2");
@@ -262,12 +304,24 @@ class Test extends haxe.unit.TestCase {
 	
 	static function parseFile(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
-		var expr = parser.parse();
-		return expr;
+		var data = parser.parse();
+		return data;
 	}
 	
 	function eeq(inputCode:String, ?expectedCode:String, ?p:haxe.PosInfos) {
 		var inputParsed = parseExpr(inputCode, p);
+		if (expectedCode == null) {
+			expectedCode = inputCode;
+		}
+		assertEquals(whitespaceEreg.replace(expectedCode, ""), whitespaceEreg.replace(inputParsed, ""), p);
+	}
+	
+	function peq(inputCode:String, ?expectedCode:String, ?p:haxe.PosInfos) {
+		var data = parseFile(inputCode, p);
+		var decls = data.decls.map(DefinitionConverter.convertTypeDef);
+		var printer = new haxe.macro.Printer("");
+		var reprs = decls.map(printer.printTypeDefinition.bind(_, false));
+		var inputParsed = reprs.join("");
 		if (expectedCode == null) {
 			expectedCode = inputCode;
 		}
