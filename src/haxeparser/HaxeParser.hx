@@ -851,7 +851,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 								{
 									name: name.name,
 									pos: punion(p1,e.pos),
-									kind: FVar(t,e.expr)
+									kind: FProp(i1,i2,t,e.expr)
 								}
 							case [t = parseTypeOpt()]:
 								var e = switch stream {
