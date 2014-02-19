@@ -158,6 +158,20 @@ class Test extends haxe.unit.TestCase {
 		eeq("function f(x:Int, y:Int) null");
 	}
 	
+	function testBlock() {
+		eeq("{a;}");
+		eeq("{a;b;}");
+		eeq("{a;b;c;}");
+		eeq("{var x, y;}");
+		eeq("{var x = 0, y;}");
+		eeq("{var x, y = 0;}");
+		eeq("{var x = 0, y = 0;}");
+		eeq("{var x:Int, y;}");
+		eeq("{var x = 0, y:Int;}");
+		eeq("{var x, y:Int = 0;}");
+		eeq("{var x:Int = 0, y:Int = 0;}");
+	}
+	
 	function testPackage() {
 		assertEquals(0, parseFile("package;").pack.length);
 		assertEquals(1, parseFile("package x;").pack.length);
