@@ -1004,7 +1004,6 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 			var e = parseBlockElt();
 			return block(aadd(acc,e));
 		} catch(e:hxparse.NoMatch<Dynamic>) {
-			acc.reverse();
 			return acc;
 		}
 	}
