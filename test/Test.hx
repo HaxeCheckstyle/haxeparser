@@ -37,6 +37,12 @@ class Test extends haxe.unit.TestCase {
 		eeq("13.14E-12");
 	}
 	
+	function testArrayAccess() {
+		eeq("a[1]");
+		eeq("a[1][2]");
+		eeq("a[1][b[2]][3]");
+	}
+	
 	function testBinops() {
 		eeq("1 + 1");
 		eeq("1 - 1");
@@ -76,6 +82,42 @@ class Test extends haxe.unit.TestCase {
 		eeq("1 >>>= 1");
 	}
 	
+	function testFieldAccess() {
+		eeq("a.b.c");
+		eeq("a.b().c()");
+	}
+	
+	function testParenthesis() {
+		eeq("(1)");
+		eeq("((1))");
+	}
+	
+	function testObjectDecl() {
+		eeq("{ foo : bar }");
+		eeq('{ a : 1, b : 2 }');
+		eeq('{ a : 1, b : 2, c : 3 }');
+	}
+	
+	function testArrayDecl() {
+		eeq("[]");
+		eeq("[1]");
+		eeq("[1, 2]");
+		eeq("[1, 2, 3]");
+	}
+	
+	function testCall() {
+		eeq("a()");
+		eeq("a(b)");
+		eeq("a(b, c)");
+	}
+	
+	function testNew() {
+		eeq("new A()");
+		eeq("new A(a)");
+		eeq("new A(a, b, c)");
+		eeq("new A<S, T>(a, b, c)");
+	}
+	
 	function testUnops() {
 		eeq("++1");
 		eeq("1++");
@@ -86,29 +128,7 @@ class Test extends haxe.unit.TestCase {
 		eeq("-1");
 		eeq("~1");
 	}
-	
-	function testCall() {
-		eeq("a()");
-		eeq("a(b)");
-		eeq("a(b, c)");
-	}
-	
-	function testFieldAccess() {
-		eeq("a.b.c");
-		eeq("a.b().c()");
-	}
-	
-	function testArrayAccess() {
-		eeq("a[1]");
-		eeq("a[1][2]");
-		eeq("a[1][b[2]][3]");
-	}
-	
-	function testParenthesis() {
-		eeq("(1)");
-		eeq("((1))");
-	}
-	
+		
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();
