@@ -4,14 +4,16 @@ import haxe.macro.Expr;
 using Lambda;
 
 class DefinitionConverter {
-	static public function convertTypeDef(t:TypeDef):TypeDefinition {
-		return switch(t) {
+	static public function convertTypeDef(pack:Array<String>, t:TypeDef):TypeDefinition {
+		var td = switch(t) {
 			case EClass(d): convertClass(d);
 			case EEnum(d): convertEnum(d);
 			case EAbstract(d): convertAbstract(d);
 			//case ETypedef(d): convertTypedef(d);
 			case _: throw 'Cannot convert $t';
 		}
+		td.pack = pack;
+		return td;
 	}
 	
 	static function getGeneralDefinition<A, B>(d:Definition<A, B>) {

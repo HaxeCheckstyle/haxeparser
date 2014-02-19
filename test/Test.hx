@@ -328,7 +328,7 @@ class Test extends haxe.unit.TestCase {
 	
 	function peq(inputCode:String, ?expectedCode:String, ?p:haxe.PosInfos) {
 		var data = parseFile(inputCode, p);
-		var decls = data.decls.map(DefinitionConverter.convertTypeDef);
+		var decls = data.decls.map(DefinitionConverter.convertTypeDef.bind(data.pack));
 		var printer = new haxe.macro.Printer("");
 		var reprs = decls.map(printer.printTypeDefinition.bind(_, false));
 		var inputParsed = reprs.join("");

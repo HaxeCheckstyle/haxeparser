@@ -4,7 +4,7 @@
   <output>
     <movie outputType="CustomBuild" />
     <movie input="" />
-    <movie path="bin/swf9.swf" />
+    <movie path="bin\swf9.swf" />
     <movie fps="30" />
     <movie width="800" />
     <movie height="600" />
@@ -15,7 +15,8 @@
   </output>
   <!-- Other classes to be compiled into your SWF -->
   <classpaths>
-    <class path="." />
+    <class path="test" />
+    <class path="src" />
   </classpaths>
   <!-- Build options -->
   <build>
