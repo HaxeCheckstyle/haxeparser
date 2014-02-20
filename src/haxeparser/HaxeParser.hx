@@ -746,7 +746,6 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 						case [{tok:Binop(OpLt)}, l = psep(Comma, parseTypePathOrConst), {tok:Binop(OpGt)}]: l;
 						case _: [];
 					}
-					pack.reverse();
 					{
 						pack: pack,
 						name: ident.name,
@@ -1312,7 +1311,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 				{ cases: cl.cases, def: b }
 			case [{tok:Kwd(KwdCase), pos:p1}, el = psep(Comma,expr), eg = popt(parseGuard), {tok:DblDot}]:
 				var b = block([]);
-				var b = { expr: b.length == 0 ? null : EBlock(b), pos: p1};
+				var b = b.length == 0 ? { expr: EBlock(b), pos: p1} : null;
 				parseSwitchCases(eswitch, aadd(cases,{values:el,guard:eg,expr:b}));
 			case _:
 				cases.reverse();
