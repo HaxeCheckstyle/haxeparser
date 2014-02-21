@@ -454,16 +454,16 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 			}
 		} else switch stream {
 			case [{tok: Semicolon, pos:p}]: p;
-		case _:
-			var pos = last.pos;
-			if (doResume)
-				pos
-			else
-				throw {
-					msg: MissingSemicolon,
-					pos: pos
-				}
-		}
+			case _:
+				var pos = last.pos;
+				if (doResume)
+					pos
+				else
+					throw {
+						msg: MissingSemicolon,
+						pos: pos
+					}
+			}
 	}
 
 	function parseFile() {
