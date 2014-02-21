@@ -191,10 +191,17 @@ class Test extends haxe.unit.TestCase {
 		eeq("do a while (b)");
 	}
 	
-	//function testSwitch() {
-		//eeq("switch (a) {}");
-		//eeq("switch (a) {case 1:2; case 2:3;}");
-	//}
+	function testSwitch() {
+		eeq("switch (a) {}");
+		eeq("switch (a) {case 1:{2;};}");
+		eeq("switch (a) {case 1:{2;};case 3:{4;};}");
+		eeq("switch (a) {case 1:{2;};case 3:{4;};case 5:{6;};}");
+		eeq("switch (a) {case 1:{2;};default:}");
+		eeq("switch (a) {case 1 if (2):{2;};}");
+		eeq("switch (a) {case _ if (2):{2;};}");
+		eeq("switch (a) {default:}");
+		eeq("switch (a) {default:{1;};}");
+	}
 	
 	function testTry() {
 		eeq("try a catch(b:C) d");

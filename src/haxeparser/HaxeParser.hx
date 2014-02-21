@@ -1212,7 +1212,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 				var e = secureExpr();
 				{ expr: EWhile(cond, e, true), pos: punion(p1, e.pos)};
 			case [{tok:Kwd(KwdDo), pos:p1}, e = expr(), {tok:Kwd(KwdWhile)}, {tok:POpen}, cond = expr(), {tok:PClose}]: { expr: EWhile(cond,e,false), pos:punion(p1, e.pos)};
-			case [{tok:Kwd(KwdSwitch), pos:p1}, e = expr(), {tok:BrOpen}, cases = parseSwitchCases(e,[]), {tok:BrClose, pos:p2}]:
+			case [{tok:Kwd(KwdSwitch), pos:p1}, e = expr(), {tok:BrOpen}, cases = parseSwitchCases(), {tok:BrClose, pos:p2}]:
 				{ expr: ESwitch(e,cases.cases,cases.def), pos:punion(p1,p2)};
 			case [{tok:Kwd(KwdTry), pos:p1}, e = expr(), cl = plist(parseCatch)]:
 				{ expr: ETry(e,cl), pos:p1};
@@ -1296,29 +1296,46 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 		}
 	}
 
-	function parseSwitchCases(eswitch:Expr, cases:Array<Case>) {
-		return switch stream {
-			case [{tok:Kwd(KwdDefault), pos:p1}, {tok:DblDot}]:
-				var b = block([]);
-				var b = { expr: b.length == 0 ? null : EBlock(b), pos:p1 };
-				var cl = parseSwitchCases(eswitch,cases);
-				if (cl.def != null) {
-					throw {
-						msg: DuplicateDefault,
-						pos: p1
+	function parseSwitchCases() {
+		var cases = [];
+		var def = null;
+		function caseBlock(b:Array<Expr>, p:Position) {
+			return if (b.length == 0) {
+				null;
+			} else switch(b) {
+				case [e = macro $b{el}]: e;
+				case _: { expr: EBlock(b), pos: p};
+			}
+		}
+		while(true) {
+			switch stream {
+				case [{tok:Kwd(KwdDefault), pos:p1}, {tok:DblDot}]:
+					var b = block([]);
+					var e = caseBlock(b, p1);
+					if (e == null) {
+						e = { expr: null, pos: p1 };
 					}
-				}
-				{ cases: cl.cases, def: b }
-			case [{tok:Kwd(KwdCase), pos:p1}, el = psep(Comma,expr), eg = popt(parseGuard), {tok:DblDot}]:
-				var b = block([]);
-				var b = b.length == 0 ? { expr: EBlock(b), pos: p1} : null;
-				parseSwitchCases(eswitch, aadd(cases,{values:el,guard:eg,expr:b}));
-			case _:
-				cases.reverse();
-				{ cases: cases, def: null};
+					if (def != null) {
+						throw {
+							msg: DuplicateDefault,
+							pos: p1
+						}
+					}
+					def = e;
+				case [{tok:Kwd(KwdCase), pos:p1}, el = psep(Comma,expr), eg = popt(parseGuard), {tok:DblDot}]:
+					var b = block([]);
+					var e = caseBlock(b, p1);
+					cases.push({values:el,guard:eg,expr:e});
+				case _:
+					break;
+			}
+		}
+		return {
+			cases: cases,
+			def: def
 		}
 	}
-
+	
 	function parseCatch() {
 		return switch stream {
 			case [{tok:Kwd(KwdCatch), pos:p}, {tok:POpen}, id = ident(), ]:
