@@ -128,7 +128,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			token.pos.min = pmin.pmin; token;
 		},
 		"#" + ident => mk(lexer, Sharp(lexer.current.substr(1))),
-		"$" + ident => mk(lexer, Dollar(lexer.current.substr(1))),
+		"$[_a-zA-Z0-9]*" => mk(lexer, Dollar(lexer.current.substr(1))),
 		ident => {
 			var kwd = keywords.get(lexer.current);
 			if (kwd != null)
