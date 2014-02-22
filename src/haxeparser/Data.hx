@@ -77,7 +77,8 @@ class TokenDefPrinter {
 	static public function print(def:TokenDef) {
 		return switch(def) {
 			case Kwd(k): k.getName().substr(3).toLowerCase();
-			case Const(CInt(s) | CFloat(s) | CString(s) | CIdent(s)): s;
+			case Const(CInt(s) | CFloat(s) | CIdent(s)): s;
+			case Const(CString(s)): '"$s"';
 			case Const(CRegexp(r, opt)): '~/$r/$opt';
 			case Sharp(s): '#$s';
 			case Dollar(s): '$$$s';
