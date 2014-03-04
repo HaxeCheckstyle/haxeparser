@@ -375,23 +375,6 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 		return acc;
 	}
 
-	function popt<T>(f:Void->T):Null<T> {
-		return switch stream {
-			case [v = f()]: v;
-			case _: null;
-		}
-	}
-
-	function plist<T>(f:Void->T):Array<T> {
-		var acc = [];
-		try {
-			while(true) {
-				acc.push(f());
-			}
-		} catch(e:hxparse.NoMatch<Dynamic>) {}
-		return acc;
-	}
-
 	function ident() {
 		return switch stream {
 			case [{tok:Const(CIdent(i)),pos:p}]: { name: i, pos: p};
@@ -491,7 +474,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 				{decl: EUsing(t), pos: punion(p1, p2)};
 			case [meta = parseMeta(), c = parseCommonFlags()]:
 				switch stream {
-					case [flags = parseEnumFlags(), doc = getDoc(), name = typeName(), tl = parseConstraintParams(), {tok:BrOpen}, l = plist(parseEnum), {tok:BrClose, pos: p2}]:
+					case [flags = parseEnumFlags(), doc = getDoc(), name = typeName(), tl = parseConstraintParams(), {tok:BrOpen}, l = parseRepeat(parseEnum), {tok:BrClose, pos: p2}]:
 						{decl: EEnum({
 							name: name,
 							doc: doc,
@@ -500,7 +483,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 							flags: c.map(function(i) return i.e).concat(flags.flags),
 							data: l
 						}), pos: punion(flags.pos,p2)};
-					case [flags = parseClassFlags(), doc = getDoc(), name = typeName(), tl = parseConstraintParams(), hl = plist(parseClassHerit), {tok:BrOpen}, fl = parseClassFields(false,flags.pos)]:
+					case [flags = parseClassFlags(), doc = getDoc(), name = typeName(), tl = parseConstraintParams(), hl = parseRepeat(parseClassHerit), {tok:BrOpen}, fl = parseClassFields(false,flags.pos)]:
 						{decl: EClass({
 							name: name,
 							doc: doc,
@@ -522,7 +505,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 							flags: c.map(function(i) return i.e),
 							data: t
 						}), pos: punion(p1,p2)};
-					case [{tok:Kwd(KwdAbstract), pos:p1}, name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = plist(parseAbstractRelations), {tok:BrOpen}, fl = parseClassFields(false, p1)]:
+					case [{tok:Kwd(KwdAbstract), pos:p1}, name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = parseRepeat(parseAbstractRelations), {tok:BrOpen}, fl = parseClassFields(false, p1)]:
 						var flags = c.map(function(flag) return switch(flag.e) { case EPrivate: APrivAbstract; case EExtern: throw 'extern abstract is not allowed'; });
 						if (st != null) {
 							flags.push(AIsType(st));
@@ -541,7 +524,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 
 	function parseClass(meta:Metadata, cflags:Array<{fst: ClassFlag, snd:String}>, needName:Bool) {
 		var optName = if (needName) typeName else function() {
-			var t = popt(typeName);
+			var t = parseOptional(typeName);
 			return t == null ? "" : t;
 		}
 		return switch stream {
@@ -624,7 +607,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 	}
 
 	function parseClassFieldResume(tdecl:Bool):Array<Field> {
-		return plist(parseClassField);
+		return parseRepeat(parseClassField);
 	}
 
 	function parseCommonFlags():Array<{c:ClassFlag, e:EnumFlag}> {
@@ -1164,7 +1147,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 				}
 			case [{tok:POpen, pos: p1}, e = expr(), {tok:PClose, pos:p2}]: exprNext({expr:EParenthesis(e), pos:punion(p1, p2)});
 			case [{tok:BkOpen, pos:p1}, l = parseArrayDecl(), {tok:BkClose, pos:p2}]: exprNext({expr: EArrayDecl(l), pos:punion(p1,p2)});
-			case [inl = inlineFunction(), name = popt(dollarIdent), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma,parseFunParam), {tok:PClose}, t = parseTypeOpt()]:
+			case [inl = inlineFunction(), name = parseOptional(dollarIdent), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma,parseFunParam), {tok:PClose}, t = parseTypeOpt()]:
 				function make(e) {
 					var f = {
 						params: pl,
@@ -1205,7 +1188,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 						}
 				}
 				{ expr: EIf(cond,e1,e2), pos:punion(p, e2 == null ? e1.pos : e2.pos)};
-			case [{tok:Kwd(KwdReturn), pos:p}, e = popt(expr)]: { expr: EReturn(e), pos: e == null ? p : punion(p,e.pos)};
+			case [{tok:Kwd(KwdReturn), pos:p}, e = parseOptional(expr)]: { expr: EReturn(e), pos: e == null ? p : punion(p,e.pos)};
 			case [{tok:Kwd(KwdBreak), pos:p}]: { expr: EBreak, pos: p };
 			case [{tok:Kwd(KwdContinue), pos:p}]: { expr: EContinue, pos: p};
 			case [{tok:Kwd(KwdWhile), pos:p1}, {tok:POpen}, cond = expr(), {tok:PClose}]:
@@ -1214,7 +1197,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 			case [{tok:Kwd(KwdDo), pos:p1}, e = expr(), {tok:Kwd(KwdWhile)}, {tok:POpen}, cond = expr(), {tok:PClose}]: { expr: EWhile(cond,e,false), pos:punion(p1, e.pos)};
 			case [{tok:Kwd(KwdSwitch), pos:p1}, e = expr(), {tok:BrOpen}, cases = parseSwitchCases(), {tok:BrClose, pos:p2}]:
 				{ expr: ESwitch(e,cases.cases,cases.def), pos:punion(p1,p2)};
-			case [{tok:Kwd(KwdTry), pos:p1}, e = expr(), cl = plist(parseCatch)]:
+			case [{tok:Kwd(KwdTry), pos:p1}, e = expr(), cl = parseRepeat(parseCatch)]:
 				{ expr: ETry(e,cl), pos:p1};
 			case [{tok:IntInterval(i), pos:p1}, e2 = expr()]: makeBinop(OpInterval,{expr:EConst(CInt(i)), pos:p1}, e2);
 			case [{tok:Kwd(KwdUntyped), pos:p1}, e = expr()]: { expr: EUntyped(e), pos:punion(p1,e.pos)};
@@ -1322,7 +1305,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 						}
 					}
 					def = e;
-				case [{tok:Kwd(KwdCase), pos:p1}, el = psep(Comma,expr), eg = popt(parseGuard), {tok:DblDot}]:
+				case [{tok:Kwd(KwdCase), pos:p1}, el = psep(Comma,expr), eg = parseOptional(parseGuard), {tok:DblDot}]:
 					var b = block([]);
 					var e = caseBlock(b, p1);
 					cases.push({values:el,guard:eg,expr:e});
