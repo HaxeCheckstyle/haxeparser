@@ -317,7 +317,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 	static function swap(op1:Binop, op2:Binop) {
 		var i1 = precedence(op1);
 		var i2 = precedence(op2);
-		return i1.left && i1.p < i2.p;
+		return i1.left && i1.p <= i2.p;
 	}
 
 	static function makeBinop(op:Binop, e:Expr, e2:Expr) {
