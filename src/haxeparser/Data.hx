@@ -108,7 +108,9 @@ class TokenDefPrinter {
 class Token {
 	public var tok: TokenDef;
 	public var pos: Position;
-	
+	#if keep_whitespace
+	public var space = "";
+	#end
 	public function new(tok, pos) {
 		this.tok = tok;
 		this.pos = pos;

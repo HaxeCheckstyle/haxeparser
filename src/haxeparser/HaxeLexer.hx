@@ -45,7 +45,16 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 	// @:rule wraps the expression to the right of => with function(lexer) return
 	public static var tok = @:rule [
 		"" => mk(lexer, Eof),
-		"[\r\n\t ]" => lexer.token(tok),
+		"[\r\n\t ]+" => {
+			#if keep_whitespace
+			var space = lexer.current;
+			var token:Token = lexer.token(tok);
+			token.space = space;
+			token;
+			#else
+			lexer.token(tok);
+			#end
+		},
 		"0x[0-9a-fA-F]+" => mk(lexer, Const(CInt(lexer.current))),
 		"[0-9]+" => mk(lexer, Const(CInt(lexer.current))),
 		"[0-9]+\\.[0-9]+" => mk(lexer, Const(CFloat(lexer.current))),
