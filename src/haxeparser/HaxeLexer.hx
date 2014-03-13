@@ -47,8 +47,8 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		"" => mk(lexer, Eof),
 		"[\r\n\t ]+" => {
 			var space = lexer.current;
-			var token = lexer.token(tok);
-			Reflect.setField(token, 'space', space); // wtf?
+			var token:Token = lexer.token(tok);
+			token.space = space;
 			token;
 		},
 		"0x[0-9a-fA-F]+" => mk(lexer, Const(CInt(lexer.current))),
