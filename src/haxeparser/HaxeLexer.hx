@@ -214,7 +214,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			buf.add("*");
 			lexer.token(comment);
 		},
-		"[^\\*]" => {
+		"[^\\*]+" => {
 			buf.add(lexer.current);
 			lexer.token(comment);
 		}
