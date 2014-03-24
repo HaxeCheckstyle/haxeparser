@@ -112,14 +112,14 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			buf = new StringBuf();
 			var pmin = lexer.curPos();
 			var pmax = try lexer.token(string) catch (e:haxe.io.Eof) throw new LexerError(UnterminatedString, mkPos(pmin));
-			var token = mk(lexer, Const(CString(buf.toString())));
+			var token = mk(lexer, Const(CString(unescape(buf.toString()))));
 			token.pos.min = pmin.pmin; token;
 		},
 		"'" => {
 			buf = new StringBuf();
 			var pmin = lexer.curPos();
 			var pmax = try lexer.token(string2) catch (e:haxe.io.Eof) throw new LexerError(UnterminatedString, mkPos(pmin));
-			var token = mk(lexer, Const(CString(buf.toString())));
+			var token = mk(lexer, Const(CString(unescape(buf.toString()))));
 			token.pos.min = pmin.pmin; token;
 		},
 		'~/' => {
@@ -150,6 +150,10 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 	
 	public static var string = @:rule [
 		"\\\\\\\\" => {
+			buf.add("\\\\");
+			lexer.token(string);
+		},
+		"\\\\" => {
 			buf.add("\\");
 			lexer.token(string);
 		},
@@ -255,4 +259,44 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			{ pmax:lexer.curPos().pmax, opt:lexer.current };
 		}
 	];
+	
+	static function unescape(s:String) {
+		var b = new StringBuf();
+		var i = 0;
+		var esc = false;
+		while (true) {
+			if (s.length == i) {
+				break;
+			}
+			var c = s.charCodeAt(i);
+			if (esc) {
+				var iNext = i + 1;
+				switch (c) {
+					case 'n'.code: b.add("\n");
+					case 'r'.code: b.add("\r");
+					case 't'.code: b.add("\t");
+					case '"'.code | '\''.code | '\\'.code: b.addChar(c);
+					case _ >= '0'.code && _ <= '3'.code => true:
+						iNext = iNext + 2;
+					case 'x'.code:
+						var c = Std.parseInt("0x" + s.substr(i + 1, 2));
+						b.addChar(c);
+						iNext = iNext + 2;
+					case c:
+						throw 'Unknown escape sequence: ${String.fromCharCode(c)}';
+				}
+				esc = false;
+				i = iNext;
+			} else switch (c) {
+				case '\\'.code:
+					++i;
+					esc = true;
+				case _:
+					b.addChar(c);
+					++i;
+			}
+
+		}
+		return b.toString();
+	}
 }
