@@ -12,9 +12,13 @@ enum ParserErrorMsg {
 	Custom(s:String);
 }
 
-typedef ParserError = {
-	msg: ParserErrorMsg,
-	pos: hxparse.Position
+class ParserError {
+	public var msg: ParserErrorMsg;
+	public var pos: Position;
+	public function new(message:ParserErrorMsg, pos:Position) {
+		this.msg = message;
+		this.pos = pos;
+	}
 }
 
 enum SmallType {
@@ -442,10 +446,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 				if (doResume)
 					pos
 				else
-					throw {
-						msg: MissingSemicolon,
-						pos: pos
-					}
+					throw new ParserError(MissingSemicolon, pos);
 			}
 	}
 
@@ -709,10 +710,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 						case [{tok:Dot}]:
 							parseTypePath1(aadd(pack, ident.name));
 						case [{tok:Semicolon}]:
-							throw {
-								msg: Custom("Type name should start with an uppercase letter"),
-								pos: ident.pos
-							}
+							throw new ParserError(Custom("Type name should start with an uppercase letter"), ident.pos);
 						case _: unexpected();
 					}
 				} else {
@@ -742,10 +740,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 	function typeName() {
 		return switch stream {
 			case [{tok: Const(CIdent(name)), pos:p}]:
-				if (isLowerIdent(name)) throw {
-					msg: Custom("Type name should start with an uppercase letter"),
-					pos: p
-				}
+				if (isLowerIdent(name)) throw new ParserError(Custom("Type name should start with an uppercase letter"), p);
 				else name;
 		}
 	}
@@ -1299,10 +1294,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 						e = { expr: null, pos: p1 };
 					}
 					if (def != null) {
-						throw {
-							msg: DuplicateDefault,
-							pos: p1
-						}
+						throw new ParserError(DuplicateDefault, p1);
 					}
 					def = e;
 				case [{tok:Kwd(KwdCase), pos:p1}, el = psep(Comma,expr), eg = parseOptional(parseGuard), {tok:DblDot}]:
@@ -1330,10 +1322,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 							expr: secureExpr()
 						}
 					case _:
-						throw {
-							msg: MissingType,
-							pos: p
-						}
+						throw new ParserError(MissingType, p);
 				}
 		}
 	}
