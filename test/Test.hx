@@ -5,6 +5,9 @@ class Test extends haxe.unit.TestCase {
 	static function main() {
 		var r = new haxe.unit.TestRunner();
 		r.add(new Test());
+		#if haxe_std_path
+		r.add(new TestStd());
+		#end
 		r.run();
 	}
 	
@@ -184,6 +187,8 @@ class Test extends haxe.unit.TestCase {
 		eeq("if (a) b");
 		eeq("if (a) b else c");
 		eeq("if (a) b else if (c) d else e");
+		eeq("if (a) b; else c", "if (a) b else c");
+		eeq("if (a) b; else if (c) d; else e", "if (a) b else if (c) d else e");
 	}
 	
 	function testWhile() {
