@@ -8,6 +8,9 @@ enum LexerErrorMsg {
 	UnterminatedString;
 	UnterminatedRegExp;
 	UnclosedComment;
+	UnterminatedEscapeSequence;
+	InvalidEscapeSequence(c:String);
+	UnknownEscapeSequence(c:String);
 }
 
 class LexerError {
@@ -112,14 +115,14 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			buf = new StringBuf();
 			var pmin = lexer.curPos();
 			var pmax = try lexer.token(string) catch (e:haxe.io.Eof) throw new LexerError(UnterminatedString, mkPos(pmin));
-			var token = mk(lexer, Const(CString(unescape(buf.toString()))));
+			var token = mk(lexer, Const(CString(unescape(buf.toString(), mkPos(pmin)))));
 			token.pos.min = pmin.pmin; token;
 		},
 		"'" => {
 			buf = new StringBuf();
 			var pmin = lexer.curPos();
 			var pmax = try lexer.token(string2) catch (e:haxe.io.Eof) throw new LexerError(UnterminatedString, mkPos(pmin));
-			var token = mk(lexer, Const(CString(unescape(buf.toString()))));
+			var token = mk(lexer, Const(CString(unescape(buf.toString(), mkPos(pmin)))));
 			token.pos.min = pmin.pmin; token;
 		},
 		'~/' => {
@@ -157,18 +160,6 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			buf.add("\\");
 			lexer.token(string);
 		},
-		"\\\\n" => {
-			buf.add("\n");
-			lexer.token(string);
-		},
-		"\\\\r" => {
-			buf.add("\r");
-			lexer.token(string);
-		},
-		"\\\\t" => {
-			buf.add("\t");
-			lexer.token(string);
-		},
 		"\\\\\"" => {
 			buf.add('"');
 			lexer.token(string);
@@ -185,16 +176,8 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			buf.add("\\");
 			lexer.token(string2);
 		},
-		"\\\\n" =>  {
-			buf.add("\n");
-			lexer.token(string2);
-		},
-		"\\\\r" => {
-			buf.add("\r");
-			lexer.token(string2);
-		},
-		"\\\\t" => {
-			buf.add("\t");
+		"\\\\" => {
+			buf.add("\\");
 			lexer.token(string2);
 		},
 		'\\\\\'' => {
@@ -260,7 +243,15 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		}
 	];
 	
-	static function unescape(s:String) {
+	static inline function unescapePos(pos:Position, index:Int, length:Int) {
+		return {
+			file: pos.file,
+			min: pos.min + index,
+			max: pos.min + index + length
+		}
+	}
+	
+	static function unescape(s:String, pos:Position) {
 		var b = new StringBuf();
 		var i = 0;
 		var esc = false;
@@ -277,13 +268,33 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 					case 't'.code: b.add("\t");
 					case '"'.code | '\''.code | '\\'.code: b.addChar(c);
 					case _ >= '0'.code && _ <= '3'.code => true:
-						iNext = iNext + 2;
+						iNext += 2;
 					case 'x'.code:
-						var c = Std.parseInt("0x" + s.substr(i + 1, 2));
+						var chars = s.substr(i + 1, 2);
+						if (!(~/^[0-9a-fA-F]{2}$/.match(chars))) throw new LexerError(InvalidEscapeSequence("\\x"+chars), unescapePos(pos, i, 1 + 2));
+						var c = Std.parseInt("0x" + chars);
 						b.addChar(c);
-						iNext = iNext + 2;
+						iNext += 2;
+					case 'u'.code:
+						var c:Int;
+						if (s.charAt(i + 1) == "{") {
+							var endIndex = s.indexOf("}", i + 3);
+							if (endIndex == -1) throw new LexerError(UnterminatedEscapeSequence, unescapePos(pos, i, 2));
+							var l = endIndex - (i + 2);
+							var chars = s.substr(i + 2, l);
+							if (!(~/^[0-9a-fA-F]+$/.match(chars))) throw new LexerError(InvalidEscapeSequence("\\u{"+chars+"}"), unescapePos(pos, i, 1 + 2 + l));
+							c = Std.parseInt("0x" + chars);
+							if (c > 0x10FFFF) throw new LexerError(InvalidEscapeSequence("\\u{"+chars+"}"), unescapePos(pos, i, 1 + 2 + l));
+							iNext += 2 + l;
+						} else {
+							var chars = s.substr(i + 1, 4);
+							if (!(~/^[0-9a-fA-F]{4}$/.match(chars))) throw new LexerError(InvalidEscapeSequence("\\u"+chars), unescapePos(pos, i, 1 + 4));
+							c = Std.parseInt("0x" + chars);
+							iNext += 4;
+						}
+						b.addChar(c);
 					case c:
-						throw 'Unknown escape sequence: ${String.fromCharCode(c)}';
+						throw new LexerError(UnknownEscapeSequence("\\"+String.fromCharCode(c)), unescapePos(pos, i, 1));
 				}
 				esc = false;
 				i = iNext;
