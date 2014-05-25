@@ -149,6 +149,11 @@ enum TypeDef {
 	EUsing(path:TypePath);
 }
 
+typedef TypeDecl = {
+	decl : TypeDef,
+	pos : Position
+}
+
 enum ClassFlag {
 	HInterface;
 	HExtern;
