@@ -459,9 +459,9 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 		}
 	}
 
-	function parseTypeDecls(pack:Array<String>, acc:Array<TypeDef>) {
+	function parseTypeDecls(pack:Array<String>, acc:Array<TypeDecl>) {
 		return switch stream {
-			case [ v = parseTypeDecl(), l = parseTypeDecls(pack,aadd(acc,v.decl)) ]:
+			case [ v = parseTypeDecl(), l = parseTypeDecls(pack,aadd(acc,v)) ]:
 				l;
 			case _: acc;
 		}
