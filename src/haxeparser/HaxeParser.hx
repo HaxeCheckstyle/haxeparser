@@ -28,72 +28,12 @@ enum SmallType {
 	SString(s:String);
 }
 
-class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.ParserBuilder {
-
-	var defines:Map<String, Dynamic>;
-
-	var mstack:Array<Position>;
-	var doResume = false;
-	var doc:String;
-	var inMacro:Bool;
-	
-	public function new(input:byte.ByteData, sourceName:String) {
-		super(new HaxeLexer(input, sourceName), HaxeLexer.tok);
-		mstack = [];
-		defines = new Map();
-		defines.set("true", true);
-		inMacro = false;
-		doc = "";
+class HaxeCondParser extends hxparse.Parser<hxparse.TokenSource.LexerTokenSource<Token>, Token> implements hxparse.ParserBuilder {
+	public function new(stream){
+		super(stream);
 	}
 
-	public function define(flag:String, ?value:Dynamic)
-	{
-		defines.set(flag, value);
-	}
-
-	public function parse() {
-		return parseFile();
-	}
-	
-	override function peek(n):Token {
-		return if (n == 0)
-		{
-			var tk = super.peek(0);
-			switch tk {
-				case {tok:CommentLine(_) | Comment(_) | Sharp("error" | "line")}:
-					junk();
-					peek(0);
-				case {tok:Sharp("end")}:
-					junk();
-					if (mstack.length == 0) tk;
-					else
-					{
-						mstack.shift();
-						peek(0);
-					}
-				case {tok:Sharp("else" | "elseif")}:
-					junk();
-					if (mstack.length == 0) tk;
-					else
-					{
-						mstack.shift();
-						skipTokens(tk.pos, false);
-					}
-				case {tok:Sharp("if")}:
-					junk();
-					enterMacro(tk.pos);
-				case t: t;
-			}
-		}
-		else super.peek(n);
-	}
-
-	function keywordString(k:Keyword)
-	{
-		return Std.string(k).substr(3).toLowerCase();
-	}
-
-	function parseMacroCond(allowOp:Bool):{tk:Option<Token>, expr:Expr}
+	public function parseMacroCond(allowOp:Bool):{tk:Option<Token>, expr:Expr}
 	{
 		return switch stream {
 			case [{tok:Const(CIdent(t)), pos:p}]:
@@ -105,12 +45,12 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 			case [{tok:Const(CFloat(s)), pos:p}]:
 				{tk:None, expr:{expr:EConst(CFloat(s)), pos:p}};
 			case [{tok:Kwd(k), pos:p}]:
-				parseMacroIdent(allowOp, keywordString(k), p);
+				parseMacroIdent(allowOp, HaxeParser.keywordString(k), p);
 			case [{tok:POpen, pos:p1}, o = parseMacroCond(true), {tok:PClose, pos:p2}]:
-				var e = {expr:EParenthesis(o.expr), pos:punion(p1, p2)};
+				var e = {expr:EParenthesis(o.expr), pos:HaxeParser.punion(p1, p2)};
 				if (allowOp) parseMacroOp(e) else { tk:None, expr:e };
 			case [{tok:Unop(op), pos:p}, o = parseMacroCond(allowOp)]:
-				{tk:o.tk, expr:makeUnop(op, o.expr, p)};
+				{tk:o.tk, expr:HaxeParser.makeUnop(op, o.expr, p)};
 		}
 	}
 
@@ -132,17 +72,60 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 					case _: op;
 				}
 				var o = parseMacroCond(true);
-				{tk:o.tk, expr:makeBinop(op, e, o.expr)};
+				{tk:o.tk, expr:HaxeParser.makeBinop(op, e, o.expr)};
 			case tk:
 				{tk:Some(tk), expr:e};
+		}
+	}
+}
+
+class HaxeTokenSource {
+	var lexer:HaxeLexer;
+	var mstack:Array<Position>;
+	var defines:Map<String, Dynamic>;
+
+	var rawSource:hxparse.TokenSource.LexerTokenSource<Token>;
+	var condParser:HaxeCondParser;
+
+	public function new(lexer,mstack,defines){
+		this.lexer = lexer;
+		this.mstack = mstack;
+		this.defines = defines;
+
+		this.rawSource = new hxparse.TokenSource.LexerTokenSource(lexer,HaxeLexer.tok);
+		this.condParser = new HaxeCondParser(this.rawSource);
+	}
+
+	public function token():Token{
+		var tk = lexer.token(HaxeLexer.tok);
+		return switch tk {
+			case {tok:CommentLine(_) | Comment(_) | Sharp("error" | "line")}:
+				token();
+			case {tok:Sharp("end")}:
+				if (mstack.length == 0) tk;
+				else
+				{
+					mstack.shift();
+					token();
+				}
+			case {tok:Sharp("else" | "elseif")}:
+				if (mstack.length == 0) tk;
+				else
+				{
+					mstack.shift();
+					skipTokens(tk.pos, false);
+				}
+			case {tok:Sharp("if")}:
+				enterMacro(tk.pos);
+			case t: t;
 		}
 	}
 
 	function enterMacro(p)
 	{
-		var o = parseMacroCond(false);
+		var o = condParser.parseMacroCond(false);
 		var tk = switch o.tk {
-			case None: peek(0);
+			case None: token();
 			case Some(tk): tk;
 		}
 		return if (isTrue(eval(o.expr)))
@@ -153,28 +136,21 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 		else skipTokensLoop(p, true, tk);
 	}
 
-	function next()
-	{
-		var tk = super.peek(0);
-		junk();
-		return tk;
-	}
-
 	function skipTokens(p:Position, test:Bool)
 	{
-		return skipTokensLoop(p, test, next());
+		return skipTokensLoop(p, test, token());
 	}
 
 	function skipTokensLoop(p:Position, test:Bool, tk:Token)
 	{
 		return switch tk {
 			case {tok:Sharp("end")}:
-				peek(0);
+				token();
 			case {tok:Sharp("elseif" | "else")} if (!test):
 				skipTokens(p, test);
 			case {tok:Sharp("else")}:
 				mstack.unshift(tk.pos);
-				peek(0);
+				token();
 			case {tok:Sharp("elseif")}:
 				enterMacro(tk.pos);
 			case {tok:Sharp("if")}:
@@ -237,6 +213,49 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 		}
 	}
 
+	public function curPos():hxparse.Position{
+		return lexer.curPos();
+	}
+}
+
+class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxparse.ParserBuilder {
+
+	var defines:Map<String, Dynamic>;
+
+	var mstack:Array<Position>;
+	var doResume = false;
+	var doc:String;
+	var inMacro:Bool;
+	
+	public function new(input:byte.ByteData, sourceName:String) {
+		mstack = [];
+		defines = new Map();
+		defines.set("true", true);
+
+		var lexer = new HaxeLexer(input, sourceName);
+		var ts = new HaxeTokenSource(lexer, mstack, defines);
+		super(ts);
+
+		inMacro = false;
+		doc = "";
+	}
+
+	public function define(flag:String, ?value:Dynamic)
+	{
+		defines.set(flag, value);
+	}
+
+	public function parse() {
+		return parseFile();
+	}
+
+	@:allow(haxeparser.HaxeCondParser)
+	static function keywordString(k:Keyword)
+	{
+		return Std.string(k).substr(3).toLowerCase();
+	}
+
+	@:allow(haxeparser.HaxeCondParser)
 	static function punion(p1:Position, p2:Position) {
 		return {
 			file: p1.file,
@@ -324,6 +343,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 		return i1.left && i1.p <= i2.p;
 	}
 
+	@:allow(haxeparser.HaxeCondParser)
 	static function makeBinop(op:Binop, e:Expr, e2:Expr) {
 		return switch (e2.expr) {
 			case EBinop(_op,_e,_e2) if (swap(op,_op)):
@@ -337,6 +357,7 @@ class HaxeParser extends hxparse.Parser<HaxeLexer, Token> implements hxparse.Par
 		}
 	}
 
+	@:allow(haxeparser.HaxeCondParser)
 	static function makeUnop(op:Unop, e:Expr, p1:Position) {
 		return switch(e.expr) {
 			case EBinop(bop,e,e2):
