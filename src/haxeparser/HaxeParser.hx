@@ -28,7 +28,7 @@ enum SmallType {
 	SString(s:String);
 }
 
-class HaxeCondParser extends hxparse.Parser<hxparse.TokenSource.LexerTokenSource<Token>, Token> implements hxparse.ParserBuilder {
+class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Token> implements hxparse.ParserBuilder {
 	public function new(stream){
 		super(stream);
 	}
@@ -84,7 +84,7 @@ class HaxeTokenSource {
 	var mstack:Array<Position>;
 	var defines:Map<String, Dynamic>;
 
-	var rawSource:hxparse.TokenSource.LexerTokenSource<Token>;
+	var rawSource:hxparse.LexerTokenSource<Token>;
 	var condParser:HaxeCondParser;
 
 	public function new(lexer,mstack,defines){
@@ -92,7 +92,7 @@ class HaxeTokenSource {
 		this.mstack = mstack;
 		this.defines = defines;
 
-		this.rawSource = new hxparse.TokenSource.LexerTokenSource(lexer,HaxeLexer.tok);
+		this.rawSource = new hxparse.LexerTokenSource(lexer,HaxeLexer.tok);
 		this.condParser = new HaxeCondParser(this.rawSource);
 	}
 
@@ -226,7 +226,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	var doResume = false;
 	var doc:String;
 	var inMacro:Bool;
-	
+
 	public function new(input:byte.ByteData, sourceName:String) {
 		mstack = [];
 		defines = new Map();
@@ -596,14 +596,14 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			}
 		}
 	}
-	
+
 	function parseAbstractRelations() {
 		return switch stream {
 			case [{tok:Const(CIdent("to"))}, t = parseComplexType()]: AToType(t);
 			case [{tok:Const(CIdent("from"))}, t = parseComplexType()]: AFromType(t);
 		}
 	}
-	
+
 	function parseAbstractSubtype() {
 		return switch stream {
 			case [{tok:POpen}, t = parseComplexType(), {tok:PClose}]: t;
@@ -1104,7 +1104,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			toTypeDef: function(t) return null,
 		}
 	}
-	
+
 	function reifyExpr(e:Expr) {
 		var toExpr = reify(inMacro).toExpr;
 		var e = toExpr(e);
@@ -1331,7 +1331,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			def: def
 		}
 	}
-	
+
 	function parseCatch() {
 		return switch stream {
 			case [{tok:Kwd(KwdCatch), pos:p}, {tok:POpen}, id = ident(), ]:
