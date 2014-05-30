@@ -173,7 +173,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 	
 	public static var string2 = @:rule [
 		"\\\\\\\\" => {
-			buf.add("\\");
+			buf.add("\\\\");
 			lexer.token(string2);
 		},
 		"\\\\" => {
@@ -181,7 +181,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			lexer.token(string2);
 		},
 		'\\\\\'' => {
-			buf.add('"');
+			buf.add("'");
 			lexer.token(string2);
 		},
 		"'" => lexer.curPos().pmax,
