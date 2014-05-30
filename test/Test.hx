@@ -321,6 +321,23 @@ class Test extends haxe.unit.TestCase {
 		eeq("#if false 1 #elseif false 2 #else 3 #end", "3");
 	}
 
+	function testIssue6() {
+		peq("class Test {
+			function main() {
+				if(true){
+					trace(\"ok\");
+				}
+				//
+			}
+		}", "class Test {
+			function main() {
+				if (true) {
+					trace(\"ok\");
+				};
+			}
+		}");
+	}
+
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();
