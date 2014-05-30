@@ -8,7 +8,7 @@ class TestStd extends haxe.unit.TestCase {
 	function test() {
 		var basePath = haxe.macro.Compiler.getDefine("haxe_std_path");
 		var hasError = false;
-		
+
 		function parse(path:String) {
 			var content = sys.io.File.getContent(path);
 			var input = byte.ByteData.ofString(content);
@@ -24,6 +24,7 @@ class TestStd extends haxe.unit.TestCase {
 				});
 			} catch(e:Dynamic) {
 				hasError = true;
+				print('While parsing $path\n');
 				print('$e\n');
 			}
 		}
