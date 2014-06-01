@@ -105,8 +105,11 @@ class HaxeTokenSource {
 
 		while (true) {
 			switch tk {
-				case {tok:CommentLine(_) | Comment(_) | Sharp("error" | "line")}:
+				case {tok:CommentLine(_) | Comment(_) | Sharp("line")}:
 					tk = lexerToken();
+				case {tok:Sharp("error")}:
+					tk = lexerToken();
+					switch tk.tok {case Const(CString(_)):tk = lexerToken();case _:}
 				case {tok:Sharp("end")}:
 					if (mstack.length == 0) return tk;
 					else {
