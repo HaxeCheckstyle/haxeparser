@@ -96,28 +96,33 @@ class HaxeTokenSource {
 		this.condParser = new HaxeCondParser(this.rawSource);
 	}
 
-	public function token():Token{
+	function lexerToken() {
+		return lexer.token(HaxeLexer.tok);
+	}
+
+	public function token():Token {
 		var tk = lexer.token(HaxeLexer.tok);
-		return switch tk {
-			case {tok:CommentLine(_) | Comment(_) | Sharp("error" | "line")}:
-				token();
-			case {tok:Sharp("end")}:
-				if (mstack.length == 0) tk;
-				else
-				{
-					mstack.shift();
-					token();
-				}
-			case {tok:Sharp("else" | "elseif")}:
-				if (mstack.length == 0) tk;
-				else
-				{
-					mstack.shift();
-					skipTokens(tk.pos, false);
-				}
-			case {tok:Sharp("if")}:
-				enterMacro(tk.pos);
-			case t: t;
+
+		while (true) {
+			switch tk {
+				case {tok:CommentLine(_) | Comment(_) | Sharp("error" | "line")}:
+					tk = lexerToken();
+				case {tok:Sharp("end")}:
+					if (mstack.length == 0) return tk;
+					else {
+						mstack.shift();
+						tk = lexerToken();
+					}
+				case {tok:Sharp("else" | "elseif")}:
+					if (mstack.length == 0) tk;
+					else {
+						mstack.shift();
+						tk = skipTokens(tk.pos, false);
+					}
+				case {tok:Sharp("if")}:
+					tk = enterMacro(tk.pos);
+				case t: return t;
+			}
 		}
 	}
 
@@ -125,7 +130,7 @@ class HaxeTokenSource {
 	{
 		var o = condParser.parseMacroCond(false);
 		var tk = switch o.tk {
-			case None: token();
+			case None: lexerToken();
 			case Some(tk): tk;
 		}
 		return if (isTrue(eval(o.expr)))
@@ -138,19 +143,19 @@ class HaxeTokenSource {
 
 	function skipTokens(p:Position, test:Bool)
 	{
-		return skipTokensLoop(p, test, token());
+		return skipTokensLoop(p, test, lexerToken());
 	}
 
 	function skipTokensLoop(p:Position, test:Bool, tk:Token)
 	{
 		return switch tk {
 			case {tok:Sharp("end")}:
-				token();
+				lexerToken();
 			case {tok:Sharp("elseif" | "else")} if (!test):
 				skipTokens(p, test);
 			case {tok:Sharp("else")}:
 				mstack.unshift(tk.pos);
-				token();
+				lexerToken();
 			case {tok:Sharp("elseif")}:
 				enterMacro(tk.pos);
 			case {tok:Sharp("if")}:

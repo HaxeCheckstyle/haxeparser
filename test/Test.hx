@@ -319,6 +319,8 @@ class Test extends haxe.unit.TestCase {
 		eeq("#if false 1 #else 2 #end", "2");
 		eeq("#if false 1 #elseif true 2 #end", "2");
 		eeq("#if false 1 #elseif false 2 #else 3 #end", "3");
+		eeq("#if true #if false 1 #else 2 #end #else 3 #end", "2");
+		eeq("#if false 1 #else #if false 2 #else 3 #end #end ", "3");
 	}
 
 	function testIssue6() {
