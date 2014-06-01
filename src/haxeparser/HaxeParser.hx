@@ -138,32 +138,34 @@ class HaxeTokenSource {
 			mstack.unshift(p);
 			tk;
 		}
-		else skipTokensLoop(p, true, tk);
+		else skipTokens(p, true, tk);
 	}
 
-	function skipTokens(p:Position, test:Bool)
-	{
-		return skipTokensLoop(p, test, lexerToken());
-	}
-
-	function skipTokensLoop(p:Position, test:Bool, tk:Token)
-	{
-		return switch tk {
-			case {tok:Sharp("end")}:
-				lexerToken();
-			case {tok:Sharp("elseif" | "else")} if (!test):
-				skipTokens(p, test);
-			case {tok:Sharp("else")}:
-				mstack.unshift(tk.pos);
-				lexerToken();
-			case {tok:Sharp("elseif")}:
-				enterMacro(tk.pos);
-			case {tok:Sharp("if")}:
-				skipTokensLoop(p, test, skipTokens(p, false));
-			case {tok:Eof}:
-				throw "unclosed macro";
-			case _:
-				skipTokens(p, test);
+	function skipTokens(p:Position, test:Bool, ?_tk:Token) {
+		var tk = _tk;
+		if (tk == null) tk = lexerToken();
+		var lvl = 0;
+		while (true) {
+			switch tk {
+				case {tok:Sharp("end")}:
+					if (lvl == 0) return lexerToken();
+					lvl--;
+					tk = lexerToken();
+				case {tok:Sharp("elseif" | "else")} if (!test && lvl == 0):
+					tk = lexerToken();
+				case {tok:Sharp("else")}:
+					mstack.unshift(tk.pos);
+					return lexerToken();
+				case {tok:Sharp("elseif")}:
+					return enterMacro(tk.pos);
+				case {tok:Sharp("if")}:
+					lvl++;
+					tk = lexerToken();
+				case {tok:TokenDef.Eof}:
+					throw "unclosed macro";
+				case _:
+					tk = lexerToken();
+			}
 		}
 	}
 

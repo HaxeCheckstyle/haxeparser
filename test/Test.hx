@@ -340,6 +340,36 @@ class Test extends haxe.unit.TestCase {
 		}");
 	}
 
+	function testIssue7(){
+		// stack overflow on large inputs
+		var s = "#if true 1 #else {";
+		for (i in 0 ... 5000) s+="1;";
+		s+= "} #end";
+		eeq(s, "1");
+
+		s = "#if true 1 #else ";
+		for (i in 0...5000) s += "#if true ";
+		s += "2";
+		for (i in 0...5000) s += " #end ";
+		s += "#end";
+		eeq(s, "1");
+
+		s = "#if false ";
+		for (i in 0...5000) s += "#if true ";
+		s += "1";
+		for (i in 0...5000) s += " #end ";
+		s += "#else 2";
+		s += "#end";
+		eeq(s, "2");
+
+		// TODO deal with enterMacro-skipTokens mutual recursion
+		// s = "#if false 1 ";
+		// for (i in 0...5000) s += "#elseif false 1 ";
+		// s += "#else 2";
+		// s += "#end";
+		// eeq(s, "2");
+	}
+
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();
