@@ -79,16 +79,16 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 	}
 }
 @:enum abstract SkipState(Int){
-	var Consume    = 1;       // consume current branch
-	var SkipBranch = 2;       // skip until next #elsif/#else
-	var SkipRest   = 3;       // skip until #end
+	var Consume    = 0;       // consume current branch
+	var SkipBranch = 1;       // skip until next #elsif/#else
+	var SkipRest   = 2;       // skip until #end
 }
 
 class HaxeTokenSource {
 	var lexer:HaxeLexer;
 	var mstack:Array<Position>;
-    var skipstates:Array<SkipState>;
-    
+	var skipstates:Array<SkipState>;
+	
 	var defines:Map<String, Dynamic>;
 
 	var rawSource:hxparse.LexerTokenSource<Token>;
@@ -98,7 +98,7 @@ class HaxeTokenSource {
 		this.lexer = lexer;
 		this.mstack = mstack;
 		this.defines = defines;
-        skipstates = [Consume];
+		skipstates = [Consume];
 		this.rawSource = new hxparse.LexerTokenSource(lexer,HaxeLexer.tok);
 		this.condParser = new HaxeCondParser(this.rawSource);
 	}
@@ -106,93 +106,71 @@ class HaxeTokenSource {
 	function lexerToken() {
 		return lexer.token(HaxeLexer.tok);
 	}
-    
-    inline function get_st() return skipstates[skipstates.length-1];
-    inline function set_st(s:SkipState) skipstates[skipstates.length-1] = s;
-    inline function push_st(s:SkipState) skipstates.push(s);
-    function pop_st(){
-        if (skipstates.length>1)
-            return skipstates.pop();
-        else
-            throw('unexpected #end');
-    }
-    
-    @:access(haxeparser.HaxeCondParser)
-    public function token():Token{
-        while(true){
-            var tk    = lexerToken();
-            var state = get_st();
-            //trace('token: $tk, state: $state');
-            switch [tk.tok,state] {
-                case [CommentLine(_) | Comment(_) | Sharp("line"),_]:
-                    //tk = lexerToken();
-                case [Sharp("error"),_]:
-                    tk = condParser.peek(0);
-                    switch tk.tok {case Const(CString(_)):tk = lexerToken();case _:}
-                case [Sharp("if"),Consume]:
-                    var cond_tk = enterMacro();
-                    //trace('if tk:' + cond_tk.tk);
-                    if (cond_tk.cond) {
-                        push_st(Consume);
-                    } else {
-                        push_st(SkipBranch);
-                    }
-                case [Sharp("if"),SkipBranch|SkipRest]:
-                    if (true)
-                       deepSkip();
-                    else
-                       push_st(SkipRest);
-                case [Sharp("end"),_]:
-                    pop_st();
-                case [Sharp("elseif"),Consume]:
-                    set_st(SkipRest);
-                case [Sharp("elseif"),SkipBranch]:
-                    var cond_tk = enterMacro();
-                    if (cond_tk.cond){
-                        set_st(Consume);
-                    } else {
-                        set_st(SkipBranch);
-                    }
-                case [Sharp("else"),SkipBranch]:
-                     set_st(Consume);
-                case [Sharp("else"),Consume]:
-                     set_st(SkipRest);
-                case [Sharp(_),SkipRest]:
-                case [_,Consume]:
-                    return tk;
-                case [Eof,_]:
-                    return tk;
-                case [_,_]:
-            }
-        }
-    }
-    
-    function enterMacro(){
-        var o = condParser.parseMacroCond(false);
-        var tk = switch o.tk {
-            case None:null;
-                //lexerToken();
-            case Some(tk): tk;
-        }
-        return {cond:isTrue(eval(o.expr)),tk:tk};
-    }
-    
-    function deepSkip(){
-        var lvl = 1;
-        while(true){
-            var tk = lexerToken();
-            switch tk.tok {
-                case Sharp("if"):
-                    lvl += 1;
-                case Sharp("end"):
-                    lvl -= 1;
-                    if (lvl == 0)
-                        return;
-                case _:
-            }
-        }
-    }
-    
+	
+	inline function get_st() return skipstates[skipstates.length-1];
+	inline function set_st(s:SkipState) skipstates[skipstates.length-1] = s;
+	inline function push_st(s:SkipState) skipstates.push(s);
+	inline function pop_st(){
+		return (skipstates.length>1) ? skipstates.pop() : throw('unexpected #end');
+	}
+	
+	@:access(haxeparser.HaxeCondParser)
+	public function token():Token{
+		while(true){
+			var tk    = lexerToken();
+			var state = get_st();
+			switch [tk.tok,state] {
+				case [CommentLine(_) | Comment(_) | Sharp("line"),_]:
+				case [Sharp("error"),_]:
+					tk = condParser.peek(0);
+					switch tk.tok {case Const(CString(_)):tk = lexerToken();case _:}
+				case [Sharp("if"),Consume]:
+					push_st( enterMacro() ? Consume : SkipBranch );
+				case [Sharp("if"),SkipBranch|SkipRest]:
+					deepSkip(); // alternatively use push_st(SkipRest) here
+				case [Sharp("end"),_]:
+					pop_st();
+				case [Sharp("elseif"),Consume]:
+					set_st(SkipRest);
+				case [Sharp("elseif"),SkipBranch]:
+					set_st( enterMacro() ? Consume : SkipBranch );
+				case [Sharp("else"),SkipBranch]:
+					set_st(Consume);
+				case [Sharp("else"),Consume]:
+					set_st(SkipRest);
+				case [Sharp(_),SkipRest]:
+				case [_,Consume]:
+					return tk;
+				case [Eof,_]:
+					return tk;
+				case [_,_]:
+			}
+		}
+	}
+	
+	inline function enterMacro(){
+		var o = condParser.parseMacroCond(false);
+		return isTrue(eval(o.expr));
+	}
+	
+	function deepSkip(){
+		var lvl = 1;
+		while(true){
+			var tk = lexerToken();
+			switch tk.tok {
+				case Sharp("if"):
+					lvl += 1;
+				case Sharp("end"):
+					lvl -= 1;
+					if (lvl == 0)
+						return;
+				case Eof:
+					throw 'unclosed macro';
+				case _:
+			}
+		}
+	}
+	
 	function isTrue(a:SmallType)
 	{
 		return switch a {
