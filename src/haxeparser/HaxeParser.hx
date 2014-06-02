@@ -78,10 +78,17 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 		}
 	}
 }
+@:enum abstract SkipState(Int){
+	var Consume    = 1;       // consume current branch
+	var SkipBranch = 2;       // skip until next #elsif/#else
+	var SkipRest   = 3;       // skip until #end
+}
 
 class HaxeTokenSource {
 	var lexer:HaxeLexer;
 	var mstack:Array<Position>;
+    var skipstates:Array<SkipState>;
+    
 	var defines:Map<String, Dynamic>;
 
 	var rawSource:hxparse.LexerTokenSource<Token>;
@@ -91,7 +98,7 @@ class HaxeTokenSource {
 		this.lexer = lexer;
 		this.mstack = mstack;
 		this.defines = defines;
-
+        skipstates = [Consume];
 		this.rawSource = new hxparse.LexerTokenSource(lexer,HaxeLexer.tok);
 		this.condParser = new HaxeCondParser(this.rawSource);
 	}
@@ -99,79 +106,93 @@ class HaxeTokenSource {
 	function lexerToken() {
 		return lexer.token(HaxeLexer.tok);
 	}
-
-	public function token():Token {
-		var tk = lexer.token(HaxeLexer.tok);
-
-		while (true) {
-			switch tk {
-				case {tok:CommentLine(_) | Comment(_) | Sharp("line")}:
-					tk = lexerToken();
-				case {tok:Sharp("error")}:
-					tk = lexerToken();
-					switch tk.tok {case Const(CString(_)):tk = lexerToken();case _:}
-				case {tok:Sharp("end")}:
-					if (mstack.length == 0) return tk;
-					else {
-						mstack.shift();
-						tk = lexerToken();
-					}
-				case {tok:Sharp("else" | "elseif")}:
-					if (mstack.length == 0) tk;
-					else {
-						mstack.shift();
-						tk = skipTokens(tk.pos, false);
-					}
-				case {tok:Sharp("if")}:
-					tk = enterMacro(tk.pos);
-				case t: return t;
-			}
-		}
-	}
-
-	function enterMacro(p)
-	{
-		var o = condParser.parseMacroCond(false);
-		var tk = switch o.tk {
-			case None: lexerToken();
-			case Some(tk): tk;
-		}
-		return if (isTrue(eval(o.expr)))
-		{
-			mstack.unshift(p);
-			tk;
-		}
-		else skipTokens(p, true, tk);
-	}
-
-	function skipTokens(p:Position, test:Bool, ?_tk:Token) {
-		var tk = _tk;
-		if (tk == null) tk = lexerToken();
-		var lvl = 0;
-		while (true) {
-			switch tk {
-				case {tok:Sharp("end")}:
-					if (lvl == 0) return lexerToken();
-					lvl--;
-					tk = lexerToken();
-				case {tok:Sharp("elseif" | "else")} if (!test && lvl == 0):
-					tk = lexerToken();
-				case {tok:Sharp("else")}:
-					mstack.unshift(tk.pos);
-					return lexerToken();
-				case {tok:Sharp("elseif")}:
-					return enterMacro(tk.pos);
-				case {tok:Sharp("if")}:
-					lvl++;
-					tk = lexerToken();
-				case {tok:TokenDef.Eof}:
-					throw "unclosed macro";
-				case _:
-					tk = lexerToken();
-			}
-		}
-	}
-
+    
+    inline function get_st() return skipstates[skipstates.length-1];
+    inline function set_st(s:SkipState) skipstates[skipstates.length-1] = s;
+    inline function push_st(s:SkipState) skipstates.push(s);
+    function pop_st(){
+        if (skipstates.length>1)
+            return skipstates.pop();
+        else
+            throw('unexpected #end');
+    }
+    
+    @:access(haxeparser.HaxeCondParser)
+    public function token():Token{
+        while(true){
+            var tk    = lexerToken();
+            var state = get_st();
+            //trace('token: $tk, state: $state');
+            switch [tk.tok,state] {
+                case [CommentLine(_) | Comment(_) | Sharp("line"),_]:
+                    //tk = lexerToken();
+                case [Sharp("error"),_]:
+                    tk = condParser.peek(0);
+                    switch tk.tok {case Const(CString(_)):tk = lexerToken();case _:}
+                case [Sharp("if"),Consume]:
+                    var cond_tk = enterMacro();
+                    //trace('if tk:' + cond_tk.tk);
+                    if (cond_tk.cond) {
+                        push_st(Consume);
+                    } else {
+                        push_st(SkipBranch);
+                    }
+                case [Sharp("if"),SkipBranch|SkipRest]:
+                    if (true)
+                       deepSkip();
+                    else
+                       push_st(SkipRest);
+                case [Sharp("end"),_]:
+                    pop_st();
+                case [Sharp("elseif"),Consume]:
+                    set_st(SkipRest);
+                case [Sharp("elseif"),SkipBranch]:
+                    var cond_tk = enterMacro();
+                    if (cond_tk.cond){
+                        set_st(Consume);
+                    } else {
+                        set_st(SkipBranch);
+                    }
+                case [Sharp("else"),SkipBranch]:
+                     set_st(Consume);
+                case [Sharp("else"),Consume]:
+                     set_st(SkipRest);
+                case [Sharp(_),SkipRest]:
+                case [_,Consume]:
+                    return tk;
+                case [Eof,_]:
+                    return tk;
+                case [_,_]:
+            }
+        }
+    }
+    
+    function enterMacro(){
+        var o = condParser.parseMacroCond(false);
+        var tk = switch o.tk {
+            case None:null;
+                //lexerToken();
+            case Some(tk): tk;
+        }
+        return {cond:isTrue(eval(o.expr)),tk:tk};
+    }
+    
+    function deepSkip(){
+        var lvl = 1;
+        while(true){
+            var tk = lexerToken();
+            switch tk.tok {
+                case Sharp("if"):
+                    lvl += 1;
+                case Sharp("end"):
+                    lvl -= 1;
+                    if (lvl == 0)
+                        return;
+                case _:
+            }
+        }
+    }
+    
 	function isTrue(a:SmallType)
 	{
 		return switch a {

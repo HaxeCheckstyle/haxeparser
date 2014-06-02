@@ -220,7 +220,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			buf.add("\t");
 			lexer.token(regexp);
 		},
-		"\\\\[\\$\\.*+\\^|{}\\[\\]()?\\-0-9]" => {
+		"\\\\[\\\\$\\.*+\\^|{}\\[\\]()?\\-0-9]" => {
 			buf.add(lexer.current);
 			lexer.token(regexp);
 		},
