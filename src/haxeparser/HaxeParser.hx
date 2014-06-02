@@ -107,10 +107,10 @@ class HaxeTokenSource {
 		return lexer.token(HaxeLexer.tok);
 	}
 	
-	inline function get_st() return skipstates[skipstates.length-1];
-	inline function set_st(s:SkipState) skipstates[skipstates.length-1] = s;
-	inline function push_st(s:SkipState) skipstates.push(s);
-	inline function pop_st(){
+	inline function getSt() return skipstates[skipstates.length-1];
+	inline function setSt(s:SkipState) skipstates[skipstates.length-1] = s;
+	inline function pushSt(s:SkipState) skipstates.push(s);
+	inline function popSt(){
 		return (skipstates.length>1) ? skipstates.pop() : throw('unexpected #end');
 	}
 	
@@ -118,26 +118,26 @@ class HaxeTokenSource {
 	public function token():Token{
 		while(true){
 			var tk    = lexerToken();
-			var state = get_st();
+			var state = getSt();
 			switch [tk.tok,state] {
 				case [CommentLine(_) | Comment(_) | Sharp("line"),_]:
 				case [Sharp("error"),_]:
 					tk = condParser.peek(0);
 					switch tk.tok {case Const(CString(_)):tk = lexerToken();case _:}
 				case [Sharp("if"),Consume]:
-					push_st( enterMacro() ? Consume : SkipBranch );
+					pushSt( enterMacro() ? Consume : SkipBranch );
 				case [Sharp("if"),SkipBranch|SkipRest]:
 					deepSkip(); // alternatively use push_st(SkipRest) here
 				case [Sharp("end"),_]:
-					pop_st();
+					popSt();
 				case [Sharp("elseif"),Consume]:
-					set_st(SkipRest);
+					setSt(SkipRest);
 				case [Sharp("elseif"),SkipBranch]:
-					set_st( enterMacro() ? Consume : SkipBranch );
+					setSt( enterMacro() ? Consume : SkipBranch );
 				case [Sharp("else"),SkipBranch]:
-					set_st(Consume);
+					setSt(Consume);
 				case [Sharp("else"),Consume]:
-					set_st(SkipRest);
+					setSt(SkipRest);
 				case [Sharp(_),SkipRest]:
 				case [_,Consume]:
 					return tk;
