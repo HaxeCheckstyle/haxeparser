@@ -78,10 +78,17 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 		}
 	}
 }
+@:enum abstract SkipState(Int){
+	var Consume    = 0;       // consume current branch
+	var SkipBranch = 1;       // skip until next #elsif/#else
+	var SkipRest   = 2;       // skip until #end
+}
 
 class HaxeTokenSource {
 	var lexer:HaxeLexer;
 	var mstack:Array<Position>;
+	var skipstates:Array<SkipState>;
+	
 	var defines:Map<String, Dynamic>;
 
 	var rawSource:hxparse.LexerTokenSource<Token>;
@@ -91,7 +98,7 @@ class HaxeTokenSource {
 		this.lexer = lexer;
 		this.mstack = mstack;
 		this.defines = defines;
-
+		skipstates = [Consume];
 		this.rawSource = new hxparse.LexerTokenSource(lexer,HaxeLexer.tok);
 		this.condParser = new HaxeCondParser(this.rawSource);
 	}
@@ -99,79 +106,71 @@ class HaxeTokenSource {
 	function lexerToken() {
 		return lexer.token(HaxeLexer.tok);
 	}
-
-	public function token():Token {
-		var tk = lexer.token(HaxeLexer.tok);
-
-		while (true) {
-			switch tk {
-				case {tok:CommentLine(_) | Comment(_) | Sharp("line")}:
-					tk = lexerToken();
-				case {tok:Sharp("error")}:
-					tk = lexerToken();
+	
+	inline function getSt() return skipstates[skipstates.length-1];
+	inline function setSt(s:SkipState) skipstates[skipstates.length-1] = s;
+	inline function pushSt(s:SkipState) skipstates.push(s);
+	inline function popSt(){
+		return (skipstates.length>1) ? skipstates.pop() : throw('unexpected #end');
+	}
+	
+	@:access(haxeparser.HaxeCondParser)
+	public function token():Token{
+		while(true){
+			var tk    = lexerToken();
+			var state = getSt();
+			switch [tk.tok,state] {
+				case [CommentLine(_) | Comment(_) | Sharp("line"),_]:
+				case [Sharp("error"),_]:
+					tk = condParser.peek(0);
 					switch tk.tok {case Const(CString(_)):tk = lexerToken();case _:}
-				case {tok:Sharp("end")}:
-					if (mstack.length == 0) return tk;
-					else {
-						mstack.shift();
-						tk = lexerToken();
-					}
-				case {tok:Sharp("else" | "elseif")}:
-					if (mstack.length == 0) tk;
-					else {
-						mstack.shift();
-						tk = skipTokens(tk.pos, false);
-					}
-				case {tok:Sharp("if")}:
-					tk = enterMacro(tk.pos);
-				case t: return t;
+				case [Sharp("if"),Consume]:
+					pushSt( enterMacro() ? Consume : SkipBranch );
+				case [Sharp("if"),SkipBranch|SkipRest]:
+					deepSkip(); // alternatively use push_st(SkipRest) here
+				case [Sharp("end"),_]:
+					popSt();
+				case [Sharp("elseif"),Consume]:
+					setSt(SkipRest);
+				case [Sharp("elseif"),SkipBranch]:
+					setSt( enterMacro() ? Consume : SkipBranch );
+				case [Sharp("else"),SkipBranch]:
+					setSt(Consume);
+				case [Sharp("else"),Consume]:
+					setSt(SkipRest);
+				case [Sharp(_),SkipRest]:
+				case [_,Consume]:
+					return tk;
+				case [Eof,_]:
+					return tk;
+				case [_,_]:
 			}
 		}
 	}
-
-	function enterMacro(p)
-	{
+	
+	inline function enterMacro(){
 		var o = condParser.parseMacroCond(false);
-		var tk = switch o.tk {
-			case None: lexerToken();
-			case Some(tk): tk;
-		}
-		return if (isTrue(eval(o.expr)))
-		{
-			mstack.unshift(p);
-			tk;
-		}
-		else skipTokens(p, true, tk);
+		return isTrue(eval(o.expr));
 	}
-
-	function skipTokens(p:Position, test:Bool, ?_tk:Token) {
-		var tk = _tk;
-		if (tk == null) tk = lexerToken();
-		var lvl = 0;
-		while (true) {
-			switch tk {
-				case {tok:Sharp("end")}:
-					if (lvl == 0) return lexerToken();
-					lvl--;
-					tk = lexerToken();
-				case {tok:Sharp("elseif" | "else")} if (!test && lvl == 0):
-					tk = lexerToken();
-				case {tok:Sharp("else")}:
-					mstack.unshift(tk.pos);
-					return lexerToken();
-				case {tok:Sharp("elseif")}:
-					return enterMacro(tk.pos);
-				case {tok:Sharp("if")}:
-					lvl++;
-					tk = lexerToken();
-				case {tok:TokenDef.Eof}:
-					throw "unclosed macro";
+	
+	function deepSkip(){
+		var lvl = 1;
+		while(true){
+			var tk = lexerToken();
+			switch tk.tok {
+				case Sharp("if"):
+					lvl += 1;
+				case Sharp("end"):
+					lvl -= 1;
+					if (lvl == 0)
+						return;
+				case Eof:
+					throw 'unclosed macro';
 				case _:
-					tk = lexerToken();
 			}
 		}
 	}
-
+	
 	function isTrue(a:SmallType)
 	{
 		return switch a {

@@ -13,7 +13,7 @@ class Test extends haxe.unit.TestCase {
 		#end
 		r.run();
 	}
-
+    
 	function testConst() {
 		eeq("1");
 		eeq("1.0");
@@ -313,7 +313,7 @@ class Test extends haxe.unit.TestCase {
 		peq("abstract A(B) from C from D to E to F {}");
 		peq("abstract A<S, T>(B<S>) from C<T> from D to E to F {}");
 	}
-
+    
 	function testConditionals() {
 		eeq("#if true 1 #else 2 #end", "1");
 		eeq("#if false 1 #else 2 #end", "2");
@@ -363,11 +363,11 @@ class Test extends haxe.unit.TestCase {
 		eeq(s, "2");
 
 		// TODO deal with enterMacro-skipTokens mutual recursion
-		// s = "#if false 1 ";
-		// for (i in 0...5000) s += "#elseif false 1 ";
-		// s += "#else 2";
-		// s += "#end";
-		// eeq(s, "2");
+		s = "#if false 1 ";
+		for (i in 0...5000) s += "#elseif false 1 ";
+		s += "#else 2";
+		s += "#end";
+		eeq(s, "2");
 	}
 
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
