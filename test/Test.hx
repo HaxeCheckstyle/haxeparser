@@ -362,7 +362,6 @@ class Test extends haxe.unit.TestCase {
 		s += "#end";
 		eeq(s, "2");
 
-		// TODO deal with enterMacro-skipTokens mutual recursion
 		s = "#if false 1 ";
 		for (i in 0...5000) s += "#elseif false 1 ";
 		s += "#else 2";
