@@ -1106,12 +1106,14 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	}
 
 	function reify(inMacro:Bool) {
-		// TODO
+		var reificator = new Reificator(inMacro);
 		return {
-			toExpr: function(e) return null,
-			toType: function(t,p) return null,
-			toTypeDef: function(t) return null,
-		}
+			toExpr: function(e:Expr):Expr{
+				return reificator.toExpr(e,e.pos);
+			},
+			toType: reificator.toCType,
+			toTypeDef: reificator.toTypeDef
+		};
 	}
 
 	function reifyExpr(e:Expr) {
@@ -1128,7 +1130,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				{ expr: ECheckType(t, TPath( {pack:["haxe","macro"], name:"Expr", sub:"ComplexType", params: []})), pos: p};
 			case [{tok:Kwd(KwdVar), pos:p1}, vl = psep(Comma, parseVarDecl)]:
 				reifyExpr({expr:EVars(vl), pos:p1});
-			case [{tok:BkOpen}, d = parseClass([],[],false)]:
+			case [d = parseClass([],[],false)]:
 				var toType = reify(inMacro).toTypeDef;
 				{ expr: ECheckType(toType(d), TPath( {pack:["haxe","macro"], name:"Expr", sub:"TypeDefinition", params: []})), pos: p};
 			case [e = secureExpr()]:
@@ -1378,5 +1380,520 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function secureExpr() {
 		return expr();
+	}
+}
+
+private class Reificator{
+
+	var curPos:Null<Expr>;
+	var inMacro:Bool;
+
+	public function new(inMacro:Bool){
+		this.curPos = null;
+		this.inMacro = inMacro;
+	}
+
+	function mkEnum(ename:String, name:String, vl:Array<Expr>, p:Position):Expr{
+		var constr:Expr = {expr:EConst(CIdent(name)), pos:p};
+		switch (vl){
+			case []: return constr;
+			case _ : return {expr:ECall(constr, vl),pos:p};
+		}
+	}
+
+	function toConst(c:Constant, p:Position):Expr{
+		function cst(n:String, v:String):Expr{
+			return mkEnum("Constant", n, [{expr:EConst(CString(v)),pos:p}], p);
+		}
+
+		switch(c){
+			case CInt(i): return cst("CInt", i);
+			case CString(s): return cst("CString", s);
+			case CFloat(s): return cst("CFloat", s);
+			case CIdent(s): return cst("CIdent", s);
+			case CRegexp(r,o): return mkEnum("Constant", "CRegexp", [{expr:EConst(CString(r)),pos:p},{expr:EConst(CString(o)),pos:p}], p);
+		}
+	}
+
+	function toBinop(o:Binop,p:Position):Expr{
+		function op(n:String):Expr{
+			return mkEnum("Binop", n, [], p);
+		}
+
+		switch(o){
+			case OpAdd: return op("OpAdd");
+			case OpMult: return op("OpMult");
+			case OpDiv: return op("OpDiv");
+			case OpSub: return op("OpSub");
+			case OpAssign: return op("OpAssign");
+			case OpEq: return op("OpEq");
+			case OpNotEq: return op("OpNotEq");
+			case OpGt: return op("OpGt");
+			case OpGte: return op("OpGte");
+			case OpLt: return op("OpLt");
+			case OpLte: return op("OpLte");
+			case OpAnd: return op("OpAnd");
+			case OpOr: return op("OpOr");
+			case OpXor: return op("OpXor");
+			case OpBoolAnd: return op("OpBoolAnd");
+			case OpBoolOr: return op("OpBoolOr");
+			case OpShl: return op("OpShl");
+			case OpShr: return op("OpShr");
+			case OpUShr: return op("OpUShr");
+			case OpMod: return op("OpMod");
+			case OpAssignOp(o): return mkEnum("Binop", "OpAssignOp", [toBinop(o, p)], p);
+			case OpInterval: return op("OpInterval");
+			case OpArrow: return op("OpArrow");
+		}
+	}
+
+	function toString(s:String, p:Position):Expr{
+		var len = s.length;
+		if (len>1 && s.charAt(0) == '$') return {expr:EConst(CIdent(s.substr(1))),pos:p};
+		else return {expr:EConst(CString(s)),pos:p};
+	}
+
+	function toArray<T>(f:T->Position->Expr, a:Array<T>, p:Position):Expr{
+		var vals = [];
+		for (v in a){
+			vals.push(f(v,p));
+		}
+
+		var e:Expr = {
+		pos:p,
+		expr:EArrayDecl(vals)
+		};
+		return e;
+	}
+
+	function toNull(p:Position):Expr{
+		return {expr:EConst(CIdent("null")),pos:p};
+	}
+
+	function toOpt<T>(f:T -> Position -> Expr, v:Null<T>, p:Position):Expr{
+		if (v == null) return toNull(p);
+		else return f(v, p);
+	}
+
+	function toBool(o:Bool, p:Position):Expr{
+		var s:String = o?"true":"false";
+		return {expr:EConst(CIdent(s)),pos:p};
+	}
+
+	function toObj(fields:Array<{field:String, expr:Expr}>, p:Position):Expr{
+		return {expr:EObjectDecl(fields),pos:p};
+	}
+
+	function toTParam(t:TypeParam, p:Position):Expr{
+		var n:String;
+		var v:Expr;
+		switch(t){
+			case TPType(t):
+				n = "TPType";
+				v = toCType(t, p);
+			case TPExpr(e):
+				n = "TPExpr";
+				v = toExpr(e, p);
+		}
+
+		return mkEnum("TypeParam", n, [v], p);
+	}
+
+	function toTPath(t:TypePath, p:Position):Expr{
+		var fields:Array<{field:String, expr:Expr}> = [
+		{field:"pack",   expr:toArray(toString, t.pack, p)},
+		{field:"name",   expr:toString(t.name, p)},
+		{field:"params", expr:toArray(toTParam, t.params, p)}
+		];
+		if(t.sub != null){
+			fields.push({field:"sub",expr:toString(t.sub, p)});
+		}
+		return toObj(fields, p);
+	}
+
+	public function toCType(t:ComplexType, p:Position):Expr {
+		function ct(n:String, vl:Array<Expr>):Expr {
+			return mkEnum("ComplexType", n, vl, p);
+		}
+
+		return switch(t){
+			case TPath({pack: [], params: [], sub: null, name: n }) if (n.charAt(0) == '$'):
+				toString(n, p);
+			case TPath(t): ct("TPath", [toTPath(t, p)]);
+			case TFunction(args, ret): ct("TFunction", [toArray(toCType, args, p), toCType(ret, p)]);
+			case TAnonymous(fields): ct("TAnonymous", [toArray(toCField, fields, p)]);
+			case TParent(t): ct("TParent", [toCType(t, p)]);
+			case TExtend(tl, fields): ct("TExtend", [toArray(toTPath, tl, p), toArray(toCField, fields, p)]);
+			case TOptional(t): ct("TOptional", [toCType(t, p)]);
+		}
+	}
+
+	function toFun(f:Function, p:Position):Expr{
+		function farg(vv:FunctionArg,p:Position):Expr{
+			var n = vv.name;
+			var o = vv.opt;
+			var t = vv.type;
+			var e = vv.value;
+			var fields:Array<{field:String, expr:Expr}> = [
+			{field:"name", expr:toString(n, p)},
+			{field:"opt",  expr:toBool(o, p)},
+			{field:"type", expr:toOpt(toCType, t, p)}
+			];
+			if (e != null){
+				fields.push({field:"value", expr:toExpr(e, p)});
+			}
+			return toObj(fields, p);
+		}
+
+		function fparam(t:TypeParamDecl,p:Position):Expr{
+			var fields:Array<{field:String, expr:Expr}> = [
+			{field:"name",        expr:toString(t.name, p)},
+			{field:"constraints", expr:toArray(toCType, t.constraints, p)},
+			{field:"params",      expr:toArray(fparam, t.params, p)}
+			];
+			return toObj(fields, p);
+		}
+
+		var fields:Array<{field:String, expr:Expr}> = [
+		{field:"args",   expr:toArray(farg, f.args, p)},
+		{field:"ret",    expr:toOpt(toCType, f.ret, p)},
+		{field:"expr",   expr:toOpt(toExpr, f.expr, p)},
+		{field:"params", expr:toArray(fparam, f.params, p)}
+		];
+
+		return toObj(fields, p);
+	}
+
+	function toAccess(a:Access, p:Position):Expr {
+		var n:String;
+		var n = switch(a){
+			case APublic :   "APublic";
+			case APrivate :  "APrivate";
+			case AStatic :   "AStatic";
+			case AOverride : "AOverride";
+			case ADynamic :  "ADynamic";
+			case AInline :   "AInline";
+			case AMacro :    "AMacro";
+		}
+		return mkEnum("Access", n, [], p);
+	}
+
+	function toCField(f:Field, p:Position):Expr {
+		var p2:Position = f.pos;
+
+		function toFType(k:FieldType):Expr {
+			var n:String;
+			var vl:Array<Expr>;
+			switch(k){
+				case FVar(ct, e): n = "FVar"; vl = [toOpt(toCType, ct, p), toOpt(toExpr, e, p)];
+				case FFun(f): n = "FFun"; vl = [toFun(f, p)];
+				case FProp(get, set, t, e): n = "FProp"; vl = [toString(get, p), toString(set, p), toOpt(toCType, t, p), toOpt(toExpr, e, p)];
+			}
+			return mkEnum("FieldType", n, vl, p);
+		}
+
+		var fields:Array<{field:String, expr:Expr}> = [];
+		fields.push({field:"name", expr:toString(f.name, p)});
+		if (f.doc != null) fields.push({field:"doc", expr:toString(f.doc, p)});
+		if (f.access != null) fields.push({field:"access", expr:toArray(toAccess, f.access, p)});
+		fields.push({field:"kind", expr:toFType(f.kind)});
+		fields.push({field:"pos",  expr:toPos(f.pos)});
+		if (f.meta != null) fields.push({field:"meta", expr:toMeta(f.meta, p)});
+
+		return toObj(fields, p);
+	}
+
+	function toMeta(m:Metadata, p:Position):Expr {
+		return toArray(function(me:MetadataEntry, _:Position):Expr {
+			var fields:Array<{field:String, expr:Expr}> = [
+			{field:"name",   expr:toString(me.name, me.pos)},
+			{field:"params", expr:toExprArray(me.params, me.pos)},
+			{field:"pos",    expr:toPos(me.pos)}
+			];
+			return toObj(fields, me.pos);
+		}, m, p);
+	}
+
+	function toPos(p:Position):Expr {
+		if (curPos != null) return curPos;
+
+		var file:Expr = {expr:EConst(CString(p.file)),         pos:p};
+		var pmin:Expr = {expr:EConst(CInt(Std.string(p.min))), pos:p};
+		var pmax:Expr = {expr:EConst(CInt(Std.string(p.max))), pos:p};
+		if (inMacro)
+			return {expr:EUntyped({expr:ECall({expr:EConst(CIdent("$mk_pos")), pos:p}, [file, pmin, pmax]), pos:p}), pos:p};
+		else
+			return toObj([{field:"file", expr:file}, {field:"min", expr:pmin}, {field:"max", expr:pmax}], p);
+	}
+
+	function toExprArray(a:Array<Expr>, p:Position):Expr {
+		if (a.length > 0){
+			switch(a[0].expr){
+			case EMeta(md,e1):
+				if (md.name == "$a" && md.params.length == 0){
+					switch(e1.expr){
+					case EArrayDecl(el): return toExprArray(el, p);
+					default: return e1;
+					}
+				}
+			default:
+			}
+		}
+		return toArray(toExpr, a, p);
+	}
+
+	public function toExpr(e:Expr, _:Position):Expr {
+		var p = e.pos;
+		function expr(n:String, vl:Array<Expr>):Expr {
+			var e = mkEnum("ExprDef", n, vl, p);
+			return toObj([{field:"expr", expr:e}, {field:"pos", expr:toPos(p)}], p);
+		}
+		function loop(e:Expr):Expr {
+			return toExpr(e, e.pos);
+		}
+		return switch(e.expr){
+			case EConst(CIdent(n)) if (n.charAt(0) == '$' && n.length > 1):
+				toString(n, p);
+			case EConst(c):
+				expr("EConst", [toConst(c, p)]);
+			case EArray(e1, e2):
+				expr("EArray", [loop(e1), loop(e2)]);
+			case EBinop(op, e1, e2):
+				expr("EBinop", [toBinop(op, p), loop(e1), loop(e2)]);
+			case EField(e, s):
+				expr("EField", [loop(e), toString(s, p)]);
+			case EParenthesis(e):
+				expr("EParenthesis", [loop(e)]);
+			case EObjectDecl(fl):
+				expr("EObjectDecl", [toArray(function(f:{field:String, expr:Expr}, p2:Position):Expr {return toObj([{field:"field", expr:toString(f.field, p)}, {field:"expr", expr:loop(f.expr)}], p2);}, fl, p)]);
+			case EArrayDecl(el):
+				expr("EArrayDecl", [toExprArray(el, p)]);
+			case ECall(e, el):
+				expr("ECall", [loop(e), toExprArray(el, p)]);
+			case ENew(t, el):
+				expr("ENew", [toTPath(t, p), toExprArray(el, p)]);
+			case EUnop(op, isPostfix, e):
+				var ops:String;
+				switch(op){
+					case OpIncrement: ops = "OpIncrement";
+					case OpDecrement: ops = "OpDecrement";
+					case OpNot: ops = "OpNot";
+					case OpNeg: ops = "OpNeg";
+					case OpNegBits: ops = "OpNegBits";
+				}
+				var op2 = mkEnum("Unop", ops, [], p);
+				expr("EUnop", [op2, toBool(isPostfix, p), loop(e)]);
+			case EVars(vl):
+				expr("EVars", [toArray(function(vv:Var, p:Position):Expr {
+					var name = vv.name;
+					var type = vv.type;
+					var expr = vv.expr;
+					var fields:Array<{field:String, expr:Expr}> = [
+						{field:"name", expr:toString(name, p)},
+						{field:"type", expr:toOpt(toCType, type, p)},
+						{field:"expr", expr:toOpt(toExpr, expr, p)}
+					];
+					return toObj(fields, p);
+				}, vl, p)]);
+			case EFunction(name, f):
+				expr("EFunction", [toOpt(toString, name, p), toFun(f, p)]);
+			case EBlock(el):
+				expr("EBlock", [toExprArray(el, p)]);
+			case EFor(e1, e2):
+				expr("EFor", [loop(e1), loop(e2)]);
+			case EIn(e1, e2):
+				expr("EIn", [loop(e1), loop(e2)]);
+			case EIf(e1, e2, eelse):
+				expr("EIf", [loop(e1), loop(e2), toOpt(toExpr, eelse, p)]);
+			case EWhile(e1, e2, normalWhile):
+				expr("EWhile", [loop(e1), loop(e2), toBool(normalWhile, p)]);
+			case ESwitch(e1, cases, def):
+				function scase(swc:Case, p:Position):Expr {
+					var el = swc.values;
+					var eg = swc.guard;
+					var e = swc.expr;
+					return toObj([{field:"values", expr:toExprArray(el, p)}, {field:"guard", expr:toOpt(toExpr, eg, p)}, {field:"expr", expr:toOpt(toExpr, e, p)}], p);
+				}
+				expr("ESwitch", [loop(e1), toArray(scase, cases, p), toOpt(
+					function(def2:Null<Expr>, p:Position):Expr {
+						return toOpt(function(def3:Expr, p:Position):Expr {
+							return toExpr(def3, p);
+						}, def2, p);
+					}, def, p)]);
+			case ETry(e1, catches):
+				function scatch(c:Catch, p:Position):Expr {
+					var n = c.name;
+					var t = c.type;
+					var e = c.expr;
+					return toObj([{field:"name", expr:toString(n, p)}, {field:"type", expr:toCType(t, p)}, {field:"expr", expr:loop(e)}], p);
+				}
+				expr("ETry", [loop(e1), toArray(scatch, catches, p)]);
+			case EReturn(eo):
+				expr("EReturn", [toOpt(toExpr, eo, p)]);
+			case EBreak:
+				expr("EBreak", []);
+			case EContinue:
+				expr("EContinue", []);
+			case EUntyped(e):
+				expr("EUntyped", [loop(e)]);
+			case EThrow(e):
+				expr("EThrow", [loop(e)]);
+			case ECast(e, ct):
+				expr("ECast", [loop(e), toOpt(toCType, ct, p)]);
+			case EDisplay(e, flag):
+				expr("EDisplay", [loop(e), toBool(flag, p)]);
+			case EDisplayNew(t):
+				expr("EDisplayNew", [toTPath(t, p)]);
+			case ETernary(e1, e2, e3):
+				expr("ETernary", [loop(e1), loop(e2), loop(e3)]);
+			case ECheckType(e1, ct):
+				expr("ECheckType", [loop(e1), toCType(ct, p)]);
+			case EMeta(md, e1):
+				switch(md.name){
+				case "$" | "$e":
+					e1;
+				case "$a":
+					switch(e1.expr){
+					case EArrayDecl(el): expr("EArrayDecl", [toExprArray(el, p)]);
+					default: expr("EArrayDecl", [e1]);
+					}
+				case "$b":
+					expr("EBlock", [e1]);
+				case "$v":
+					{expr:ECall(
+						{expr:EField(
+							{expr:EField(
+								{expr:EField(
+									{expr:EConst(CIdent("haxe")),
+									pos:p},
+									"macro"
+								),
+								pos:p},
+								"Context"
+							),
+							pos:p},
+							"makeExpr"
+						),
+						pos:p},
+						[e, toPos(e.pos)]
+					),
+					pos:p};
+				case "$i":
+					expr("EConst", [mkEnum("Constant", "CIdent", [e1], e1.pos)]);
+				case "$p":
+					{expr:ECall(
+						{expr:EField(
+							{expr:EField(
+								{expr:EField(
+									{expr:EConst(CIdent("haxe")),
+									pos:p},
+									"macro"
+								),
+								pos:p},
+								"ExprTools"
+							),
+							pos:p},
+							"toFieldExpr"
+						),
+						pos:p},
+						[e]
+					),
+					pos:p};
+				case ":pos" if (md.params.length == 1):
+					var old = curPos;
+					curPos = md.params[0];
+					var e = loop(e1);
+					curPos = old;
+					e;
+				default: expr("EMeta", [
+						toObj([
+							{field:"name",expr:toString(md.name, p)},
+							{field:"params",expr:toExprArray(md.params, p)},
+							{field:"pos",expr:toPos(p)}
+						], p),
+						loop(e1)
+					]);
+				}
+		}
+	}
+
+	function toTParamDecl(t:TypeParamDecl, p:Position):Expr{
+		var params = [];
+		for (tp in t.params){
+			params.push(toTParamDecl(tp,p));
+		}
+
+		var constraints = [];
+		for (c in t.constraints){
+			constraints.push(toCType(c,p));
+		}
+
+		return toObj([
+			{field:"name", expr:toString(t.name,p)},
+			{field:"params", expr:{expr:EArrayDecl(params),pos:p}},
+			{field:"constraints", expr:{expr:EArrayDecl(constraints),pos:p}}
+		],p);
+	}
+
+	public function toTypeDef(td:TypeDecl):Expr{
+		var p = td.pos;
+
+		switch(td.decl){
+		case EClass(d):
+			var ext = null;
+			var impl = [];
+			var interf = false;
+
+			for (f in d.flags){
+				switch(f){
+					case HExtern | HPrivate:
+					case HInterface: interf = true;
+					case HExtends(t): ext = toTPath(t, td.pos);
+					case HImplements(i): impl.push(toTPath(i, td.pos));
+				}
+			}
+
+			var params = [];
+			for (par in d.params){
+				params.push(toTParamDecl(par,p));
+			}
+
+			var isExtern = false;
+			for (f in d.flags){
+				switch(f){
+				case HExtern: isExtern = true; break;
+				default:
+				}
+			}
+
+			var kindParams = [];
+
+			if (ext == null){
+				kindParams.push({expr:EConst(CIdent("null")),pos:p});
+			}
+			else {
+				kindParams.push(ext);
+			}
+
+			kindParams.push({expr:EArrayDecl(impl),pos:p});
+			kindParams.push(toBool(interf, p));
+
+			var fields = [];
+			for (d in d.data){
+				fields.push(toCField(d,p));
+			}
+
+			return toObj([
+				{field:"pack", expr:{expr:EArrayDecl([]),pos:p}},
+				{field:"name", expr:toString(d.name, p)},
+				{field:"pos", expr:(toPos(p))},
+				{field:"meta", expr:toMeta(d.meta, p)},
+				{field:"params", expr:{expr:EArrayDecl(params),pos:p}},
+				{field:"isExtern", expr:toBool(isExtern, p)},
+				{field:"kind", expr:mkEnum("TypeDefKind", "TDClass", kindParams, p)},
+				{field:"fields", expr:{expr:EArrayDecl(fields), pos:p}}
+			], td.pos);
+		default: throw "Invalid type for reification";
+		}
 	}
 }

@@ -323,6 +323,32 @@ class Test extends haxe.unit.TestCase {
 		eeq("#if false 1 #else #if false 2 #else 3 #end #end ", "3");
 	}
 
+	function testMacro(){
+		var fakePosInfos = {
+			fileName: "Macro.hx",
+			lineNumber : 0,
+			className : "Macro",
+			methodName : "main"
+		}
+
+		eeq("macro 1;",           '({ expr : EConst(CInt(\"1\")), pos : { file : \"main:0\", min : 6, max : 7 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro a;",           '({ expr : EConst(CIdent("a")), pos : { file : "main:0", min : 6, max : 7 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro $a;",          '(a : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro ${a};",        '(a : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro $e{a};",       '(a : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro $a{a};",       '({ expr : EArrayDecl(a), pos : { file : "main:0", min : 8, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro $b{a};",       '({ expr : EBlock(a), pos : { file : "main:0", min : 8, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro $i{a};",       '({ expr : EConst(CIdent(a)), pos : { file : "main:0", min : 8, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
+		//eeq("macro $p{a};",       '',fakePosInfos); // ???
+		//eeq("macro $v{a};",       '',fakePosInfos); // ???
+		eeq("macro var a;",       '({ expr : EVars([{ name : "a", type : null, expr : null }]), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro @meta var a;", '({ expr : EMeta({ name : "meta", params : [], pos : { file : "main:0", min : 7, max : 15 } }, { expr : EVars([{ name : "a", type : null, expr : null }]), pos : { file : "main:0", min : 12, max : 15 } }), pos : { file : "main:0", min : 7, max : 15 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro f();",         '({ expr : ECall({ expr : EConst(CIdent("f")), pos : { file : "main:0", min : 6, max : 7 } }, []), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro :Array;",      '(TPath({ pack : [], name : "Array", params : [] }) : haxe.macro.Expr.ComplexType)',fakePosInfos);
+		eeq("macro class A{};",   '({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 15 }, meta : [], params : [], isExtern : false, kind : TDClass(null, [], false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
+		eeq("macro class A<T>{};",'({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 18 }, meta : [], params : [{ name : "T", params : [], constraints : [] }], isExtern : false, kind : TDClass(null, [], false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
+	}
+
 	function testIssue6() {
 		peq("class Test {
 			function main() {
