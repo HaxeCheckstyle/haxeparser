@@ -9,6 +9,7 @@ enum ParserErrorMsg {
 	MissingSemicolon;
 	MissingType;
 	DuplicateDefault;
+	UnclosedMacro;
 	Custom(s:String);
 }
 
@@ -86,7 +87,9 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 
 class HaxeTokenSource {
 	var lexer:HaxeLexer;
+	@:allow(haxeparser.HaxeParser)
 	var mstack:Array<Position>;
+	@:allow(haxeparser.HaxeParser)
 	var skipstates:Array<SkipState>;
 	
 	var defines:Map<String, Dynamic>;
@@ -94,11 +97,11 @@ class HaxeTokenSource {
 	var rawSource:hxparse.LexerTokenSource<Token>;
 	var condParser:HaxeCondParser;
 
-	public function new(lexer,mstack,defines){
+	public function new(lexer,defines){
 		this.lexer = lexer;
-		this.mstack = mstack;
+		this.mstack = [];
 		this.defines = defines;
-		skipstates = [Consume];
+		this.skipstates = [Consume];
 		this.rawSource = new hxparse.LexerTokenSource(lexer,HaxeLexer.tok);
 		this.condParser = new HaxeCondParser(this.rawSource);
 	}
@@ -125,10 +128,12 @@ class HaxeTokenSource {
 					tk = condParser.peek(0);
 					switch tk.tok {case Const(CString(_)):tk = lexerToken();case _:}
 				case [Sharp("if"),Consume]:
+					mstack.push(tk.pos);
 					pushSt( enterMacro() ? Consume : SkipBranch );
 				case [Sharp("if"),SkipBranch|SkipRest]:
 					deepSkip(); // alternatively use push_st(SkipRest) here
 				case [Sharp("end"),_]:
+					mstack.pop();
 					popSt();
 				case [Sharp("elseif"),Consume]:
 					setSt(SkipRest);
@@ -231,18 +236,16 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	var defines:Map<String, Dynamic>;
 
-	var mstack:Array<Position>;
 	var doResume = false;
 	var doc:String;
 	var inMacro:Bool;
 
 	public function new(input:byte.ByteData, sourceName:String) {
-		mstack = [];
 		defines = new Map();
 		defines.set("true", true);
 
 		var lexer = new HaxeLexer(input, sourceName);
-		var ts = new HaxeTokenSource(lexer, mstack, defines);
+		var ts = new HaxeTokenSource(lexer, defines);
 		super(ts);
 
 		inMacro = false;
@@ -255,7 +258,9 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	}
 
 	public function parse() {
-		return parseFile();
+		var res = parseFile();
+		if (stream.mstack.length != 0) throw new ParserError(UnclosedMacro, stream.mstack[stream.mstack.length-1]);
+		return res;
 	}
 
 	@:allow(haxeparser.HaxeCondParser)

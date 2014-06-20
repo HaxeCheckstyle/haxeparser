@@ -321,6 +321,15 @@ class Test extends haxe.unit.TestCase {
 		eeq("#if false 1 #elseif false 2 #else 3 #end", "3");
 		eeq("#if true #if false 1 #else 2 #end #else 3 #end", "2");
 		eeq("#if false 1 #else #if false 2 #else 3 #end #end ", "3");
+
+		perr("#if true class C{}");
+		perr("#if false class C{}");
+		perr("#if true class C{} #else class C{}");
+		perr("#if false class C{} #else class C{}");
+		perr("#if false class C{} #elseif false class C{}");
+		perr("#if false class C{} #elseif true class C{}");
+		perr("#if false class C{} #elseif false class C{} #else");
+		perr("#if false class C{} #elseif true class C{} #else");
 	}
 
 	function testIssue6() {
@@ -387,6 +396,17 @@ class Test extends haxe.unit.TestCase {
 			expectedCode = inputCode;
 		}
 		assertEquals(whitespaceEreg.replace(expectedCode, ""), whitespaceEreg.replace(inputParsed, ""), p);
+	}
+
+	function perr(inputCode:String, ?p:haxe.PosInfos){
+		var catchError = false;
+		try {
+			parseFile(inputCode);
+		}
+		catch (e:Dynamic){
+			catchError = true;
+		}
+		assertTrue(catchError);
 	}
 
 	function peq(inputCode:String, ?expectedCode:String, ?p:haxe.PosInfos) {
