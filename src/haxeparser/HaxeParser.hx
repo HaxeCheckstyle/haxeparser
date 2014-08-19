@@ -91,7 +91,7 @@ class HaxeTokenSource {
 	var mstack:Array<Position>;
 	@:allow(haxeparser.HaxeParser)
 	var skipstates:Array<SkipState>;
-	
+
 	var defines:Map<String, Dynamic>;
 
 	var rawSource:hxparse.LexerTokenSource<Token>;
@@ -109,14 +109,14 @@ class HaxeTokenSource {
 	function lexerToken() {
 		return lexer.token(HaxeLexer.tok);
 	}
-	
+
 	inline function getSt() return skipstates[skipstates.length-1];
 	inline function setSt(s:SkipState) skipstates[skipstates.length-1] = s;
 	inline function pushSt(s:SkipState) skipstates.push(s);
 	inline function popSt(){
 		return (skipstates.length>1) ? skipstates.pop() : throw('unexpected #end');
 	}
-	
+
 	@:access(haxeparser.HaxeCondParser)
 	public function token():Token{
 		while(true){
@@ -152,12 +152,12 @@ class HaxeTokenSource {
 			}
 		}
 	}
-	
+
 	inline function enterMacro(){
 		var o = condParser.parseMacroCond(false);
 		return isTrue(eval(o.expr));
 	}
-	
+
 	function deepSkip(){
 		var lvl = 1;
 		while(true){
@@ -175,7 +175,7 @@ class HaxeTokenSource {
 			}
 		}
 	}
-	
+
 	function isTrue(a:SmallType)
 	{
 		return switch a {
@@ -392,6 +392,11 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case _:
 				{ expr: EMeta({name:name, params:params, pos:p1}, e), pos: punion(p1, e.pos) };
 		}
+	}
+
+	static function aprepend<T>(a:Array<T>, t:T) {
+		a.unshift(t);
+		return a;
 	}
 
 	static function aadd<T>(a:Array<T>, t:T) {
@@ -811,7 +816,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						case TPath({pack:[], name:"Null"}): t;
 						case _: TPath({pack:[], name:"Null", sub:null, params:[TPType(t)]});
 					}
-					return aadd(acc, {
+					return aprepend(acc, {
 						name: id.name,
 						meta: opt ? [{name:":optional",params:[], pos:id.pos}] : [],
 						access: [],
