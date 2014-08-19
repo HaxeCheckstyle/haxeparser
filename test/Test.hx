@@ -13,7 +13,7 @@ class Test extends haxe.unit.TestCase {
 		#end
 		r.run();
 	}
-    
+
 	function testConst() {
 		eeq("1");
 		eeq("1.0");
@@ -313,7 +313,7 @@ class Test extends haxe.unit.TestCase {
 		peq("abstract A(B) from C from D to E to F {}");
 		peq("abstract A<S, T>(B<S>) from C<T> from D to E to F {}");
 	}
-    
+
 	function testConditionals() {
 		eeq("#if true 1 #else 2 #end", "1");
 		eeq("#if false 1 #else 2 #end", "2");
@@ -402,6 +402,10 @@ class Test extends haxe.unit.TestCase {
 		s += "#else 2";
 		s += "#end";
 		eeq(s, "2");
+	}
+
+	function testIssue19() {
+		eeq("(null : { a:Int, b:String, c:Bool })", "(null : { var a : Int; var b : String; var c : Bool; })");
 	}
 
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {

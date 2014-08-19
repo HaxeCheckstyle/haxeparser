@@ -394,8 +394,13 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	static function aadd<T>(a:Array<T>, t:T) {
+	static function apush<T>(a:Array<T>, t:T) {
 		a.push(t);
+		return a;
+	}
+
+	static function aunshift<T>(a:Array<T>, t:T) {
+		a.unshift(t);
 		return a;
 	}
 
@@ -496,7 +501,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseTypeDecls(pack:Array<String>, acc:Array<TypeDecl>) {
 		return switch stream {
-			case [ v = parseTypeDecl(), l = parseTypeDecls(pack,aadd(acc,v)) ]:
+			case [ v = parseTypeDecl(), l = parseTypeDecls(pack,apush(acc,v)) ]:
 				l;
 			case _: acc;
 		}
@@ -648,8 +653,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseCommonFlags():Array<{c:ClassFlag, e:EnumFlag}> {
 		return switch stream {
-			case [{tok:Kwd(KwdPrivate)}, l = parseCommonFlags()]: aadd(l, {c:HPrivate, e:EPrivate});
-			case [{tok:Kwd(KwdExtern)}, l = parseCommonFlags()]: aadd(l, {c:HExtern, e:EExtern});
+			case [{tok:Kwd(KwdPrivate)}, l = parseCommonFlags()]: apush(l, {c:HPrivate, e:EPrivate});
+			case [{tok:Kwd(KwdExtern)}, l = parseCommonFlags()]: apush(l, {c:HExtern, e:EExtern});
 			case _: [];
 		}
 	}
@@ -669,7 +674,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseMeta() {
 		return switch stream {
-			case [entry = parseMetaEntry()]: aadd(parseMeta(), entry);
+			case [entry = parseMetaEntry()]: apush(parseMeta(), entry);
 			case _: [];
 		}
 	}
@@ -695,7 +700,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	function parseClassFlags() {
 		return switch stream {
 			case [{tok:Kwd(KwdClass), pos:p}]: {flags: [], pos: p};
-			case [{tok:Kwd(KwdInterface), pos:p}]: {flags: aadd([],HInterface), pos: p};
+			case [{tok:Kwd(KwdInterface), pos:p}]: {flags: apush([],HInterface), pos: p};
 		}
 	}
 
@@ -743,7 +748,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				if (isLowerIdent(ident.name)) {
 					switch stream {
 						case [{tok:Dot}]:
-							parseTypePath1(aadd(pack, ident.name));
+							parseTypePath1(apush(pack, ident.name));
 						case [{tok:Semicolon}]:
 							throw new ParserError(Custom("Type name should start with an uppercase letter"), ident.pos);
 						case _: unexpected();
@@ -795,7 +800,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Arrow}, t2 = parseComplexType()]:
 				switch(t2) {
 					case TFunction(args,r):
-						TFunction(aadd(args,t),r);
+						TFunction(apush(args,t),r);
 					case _:
 						TFunction([t],t2);
 				}
@@ -811,7 +816,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						case TPath({pack:[], name:"Null"}): t;
 						case _: TPath({pack:[], name:"Null", sub:null, params:[TPType(t)]});
 					}
-					return aadd(acc, {
+					return aunshift(acc, {
 						name: id.name,
 						meta: opt ? [{name:":optional",params:[], pos:id.pos}] : [],
 						access: [],
@@ -942,13 +947,13 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseCfRights(allowStatic:Bool, l:Array<Access>) {
 		return switch stream {
-			case [{tok:Kwd(KwdStatic)} && allowStatic, l = parseCfRights(false, aadd(l, AStatic))]: l;
-			case [{tok:Kwd(KwdMacro)} && !l.has(AMacro), l = parseCfRights(allowStatic, aadd(l, AMacro))]: l;
-			case [{tok:Kwd(KwdPublic)} && !(l.has(APublic) || l.has(APrivate)), l = parseCfRights(allowStatic, aadd(l, APublic))]: l;
-			case [{tok:Kwd(KwdPrivate)} && !(l.has(APublic) || l.has(APrivate)), l = parseCfRights(allowStatic, aadd(l, APrivate))]: l;
-			case [{tok:Kwd(KwdOverride)} && !l.has(AOverride), l = parseCfRights(false, aadd(l, AOverride))]: l;
-			case [{tok:Kwd(KwdDynamic)} && !l.has(ADynamic), l = parseCfRights(allowStatic, aadd(l, ADynamic))]: l;
-			case [{tok:Kwd(KwdInline)}, l = parseCfRights(allowStatic, aadd(l, AInline))]: l;
+			case [{tok:Kwd(KwdStatic)} && allowStatic, l = parseCfRights(false, apush(l, AStatic))]: l;
+			case [{tok:Kwd(KwdMacro)} && !l.has(AMacro), l = parseCfRights(allowStatic, apush(l, AMacro))]: l;
+			case [{tok:Kwd(KwdPublic)} && !(l.has(APublic) || l.has(APrivate)), l = parseCfRights(allowStatic, apush(l, APublic))]: l;
+			case [{tok:Kwd(KwdPrivate)} && !(l.has(APublic) || l.has(APrivate)), l = parseCfRights(allowStatic, apush(l, APrivate))]: l;
+			case [{tok:Kwd(KwdOverride)} && !l.has(AOverride), l = parseCfRights(false, apush(l, AOverride))]: l;
+			case [{tok:Kwd(KwdDynamic)} && !l.has(ADynamic), l = parseCfRights(allowStatic, apush(l, ADynamic))]: l;
+			case [{tok:Kwd(KwdInline)}, l = parseCfRights(allowStatic, apush(l, AInline))]: l;
 			case _: l;
 		}
 	}
@@ -1041,7 +1046,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	function block(acc:Array<Expr>) {
 		try {
 			var e = parseBlockElt();
-			return block(aadd(acc,e));
+			return block(apush(acc,e));
 		} catch(e:hxparse.NoMatch<Dynamic>) {
 			return acc;
 		}
@@ -1063,7 +1068,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						case [id = ident(), {tok:DblDot}, e = expr()]:
 							acc.push({field:id.name, expr: e});
 						case [{tok:Const(CString(name))}, {tok:DblDot}, e = expr()]:
-							//aadd(l,{field:quoteIdent(name), expr: e});
+							//apush(l,{field:quoteIdent(name), expr: e});
 							acc.push({field:quoteIdent(name), expr: e});
 						case _:
 							break;
