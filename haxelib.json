@@ -2,5 +2,8 @@
   "name": "haxeparser",
   "url": "https://github.com/Simn/haxeparser",
   "classPath": "src",
-  "contributors": ["Simn"]
+  "contributors": ["Simn"],
+  "dependencies": {
+    "hxparse": ""
+  }
 }
