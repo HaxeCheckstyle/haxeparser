@@ -125,8 +125,8 @@ class HaxeTokenSource {
 			switch [tk.tok,state] {
 				case [CommentLine(_) | Comment(_) | Sharp("line"),_]:
 				case [Sharp("error"),_]:
-					tk = condParser.peek(0);
-					switch tk.tok {case Const(CString(_)):tk = lexerToken();case _:}
+					tk = token();
+					switch tk.tok {case Const(CString(_)):tk = token(); case _:}
 				case [Sharp("if"),Consume]:
 					mstack.push(tk.pos);
 					pushSt( enterMacro() ? Consume : SkipBranch );
