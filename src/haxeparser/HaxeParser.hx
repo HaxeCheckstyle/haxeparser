@@ -606,7 +606,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						decl: EImport(acc, INormal),
 						pos: p2
 					}
-				case [{tok:Kwd(KwdIn)}, {tok:Const(CIdent(name))}, {tok:Semicolon, pos:p2}]:
+				case [{tok:Kwd(KwdIn) | Const(CIdent('as'))}, {tok:Const(CIdent(name))}, {tok:Semicolon, pos:p2}]:
 					return {
 						decl: EImport(acc, IAsName(name)),
 						pos: p2
