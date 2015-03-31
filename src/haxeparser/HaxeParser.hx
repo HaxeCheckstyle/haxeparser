@@ -948,11 +948,11 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	function parseCfRights(allowStatic:Bool, l:Array<Access>) {
 		return switch stream {
 			case [{tok:Kwd(KwdStatic)} && allowStatic, l = parseCfRights(false, apush(l, AStatic))]: l;
-			case [{tok:Kwd(KwdMacro)} && !l.has(AMacro), l = parseCfRights(allowStatic, apush(l, AMacro))]: l;
-			case [{tok:Kwd(KwdPublic)} && !(l.has(APublic) || l.has(APrivate)), l = parseCfRights(allowStatic, apush(l, APublic))]: l;
-			case [{tok:Kwd(KwdPrivate)} && !(l.has(APublic) || l.has(APrivate)), l = parseCfRights(allowStatic, apush(l, APrivate))]: l;
-			case [{tok:Kwd(KwdOverride)} && !l.has(AOverride), l = parseCfRights(false, apush(l, AOverride))]: l;
-			case [{tok:Kwd(KwdDynamic)} && !l.has(ADynamic), l = parseCfRights(allowStatic, apush(l, ADynamic))]: l;
+			case [{tok:Kwd(KwdMacro)}, l = parseCfRights(allowStatic, apush(l, AMacro))]: l;
+			case [{tok:Kwd(KwdPublic)}, l = parseCfRights(allowStatic, apush(l, APublic))]: l;
+			case [{tok:Kwd(KwdPrivate)}, l = parseCfRights(allowStatic, apush(l, APrivate))]: l;
+			case [{tok:Kwd(KwdOverride)}, l = parseCfRights(false, apush(l, AOverride))]: l;
+			case [{tok:Kwd(KwdDynamic)}, l = parseCfRights(allowStatic, apush(l, ADynamic))]: l;
 			case [{tok:Kwd(KwdInline)}, l = parseCfRights(allowStatic, apush(l, AInline))]: l;
 			case _: l;
 		}
