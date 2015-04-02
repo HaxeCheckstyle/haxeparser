@@ -332,6 +332,39 @@ class Test extends haxe.unit.TestCase {
 		perr("#if false class C{} #elseif true class C{} #else");
 	}
 
+	function testError() {
+		eeq("#if true 1 #else #error #end", "1");
+		eeq("#if false #error #else 2 #end", "2");
+		eeq("#if true 1 #else #error \"Test failed\" #end", "1");
+		eeq("#if false #error \"Test failed\" #else 2 #end", "2");
+
+		var err = null;
+
+		err = perr("#if true #error #else 2 #end");
+		assertTrue(Std.is(err, haxeparser.HaxeParser.ParserError));
+		assertEquals(haxeparser.HaxeParser.ParserErrorMsg.Unimplemented, err.msg);
+		assertEquals(9, err.pos.min);
+		assertEquals(15, err.pos.max);
+
+		err = perr("#if false 1 #else #error #end");
+		assertTrue(Std.is(err, haxeparser.HaxeParser.ParserError));
+		assertEquals(haxeparser.HaxeParser.ParserErrorMsg.Unimplemented, err.msg);
+		assertEquals(18, err.pos.min);
+		assertEquals(24, err.pos.max);
+
+		err = perr("#if true #error \"Test passed\" #else 2 #end");
+		assertTrue(Std.is(err, haxeparser.HaxeParser.ParserError));
+		assertTrue(err.msg.match(haxeparser.HaxeParser.ParserErrorMsg.Custom("Test passed")));
+		assertEquals(9, err.pos.min);
+		assertEquals(15, err.pos.max);
+
+		err = perr("#if false 1 #else #error \"Test passed\" #end");
+		assertTrue(Std.is(err, haxeparser.HaxeParser.ParserError));
+		assertTrue(err.msg.match(haxeparser.HaxeParser.ParserErrorMsg.Custom("Test passed")));
+		assertEquals(18, err.pos.min);
+		assertEquals(24, err.pos.max);
+	}
+
 	function testMacro(){
 		var fakePosInfos = {
 			fileName: "Macro.hx",
@@ -430,13 +463,16 @@ class Test extends haxe.unit.TestCase {
 
 	function perr(inputCode:String, ?p:haxe.PosInfos){
 		var catchError = false;
+		var err:Dynamic = null;
 		try {
 			parseFile(inputCode);
 		}
 		catch (e:Dynamic){
 			catchError = true;
+			err = e;
 		}
 		assertTrue(catchError);
+		return err;
 	}
 
 	function peq(inputCode:String, ?expectedCode:String, ?p:haxe.PosInfos) {
