@@ -10,6 +10,7 @@ enum ParserErrorMsg {
 	MissingType;
 	DuplicateDefault;
 	UnclosedMacro;
+	Unimplemented;
 	Custom(s:String);
 }
 
@@ -124,9 +125,12 @@ class HaxeTokenSource {
 			var state = getSt();
 			switch [tk.tok,state] {
 				case [CommentLine(_) | Comment(_) | Sharp("line"),_]:
-				case [Sharp("error"),_]:
-					tk = condParser.peek(0);
-					switch tk.tok {case Const(CString(_)):tk = lexerToken();case _:}
+				case [Sharp("error"),Consume]:
+					var nextTok = lexerToken();
+					switch nextTok.tok {
+						case Const(CString(str)):throw new ParserError(Custom(str), tk.pos);
+						case _:throw new ParserError(Unimplemented, tk.pos);
+					}
 				case [Sharp("if"),Consume]:
 					mstack.push(tk.pos);
 					pushSt( enterMacro() ? Consume : SkipBranch );
