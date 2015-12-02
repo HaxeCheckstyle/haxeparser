@@ -256,6 +256,8 @@ class Test extends haxe.unit.TestCase {
 	function testPackage() {
 		assertEquals(0, parseFile("package;").pack.length);
 		assertEquals(1, parseFile("package x;").pack.length);
+		assertEquals(2, parseFile("package haxe.macro;").pack.length);
+		assertEquals(2, parseFile("package haxe.extern;").pack.length);
 		assertEquals(1, parseFile(
 		    "//test\n"
 		  + "package x;"

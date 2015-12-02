@@ -448,6 +448,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch stream {
 			case [{tok:Const(CIdent(i))} && isLowerIdent(i)]: i;
 			case [{tok:Kwd(KwdMacro)}]: "macro";
+			case [{tok:Kwd(KwdExtern)}]: "extern";
 		}
 	}
 
@@ -598,6 +599,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 							acc.push({pack:k,pos:p});
 						case [{tok:Kwd(KwdMacro), pos:p}]:
 							acc.push({pack:"macro",pos:p});
+						case [{tok:Kwd(KwdExtern), pos:p}]:
+							acc.push({pack:"extern",pos:p});
 						case [{tok:Binop(OpMult)}, {tok:Semicolon, pos:p2}]:
 							return {
 								decl: EImport(acc, IAll),
