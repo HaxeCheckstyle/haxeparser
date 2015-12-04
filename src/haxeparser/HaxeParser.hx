@@ -1196,6 +1196,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				switch stream {
 					case [{tok:PClose, pos:p2}]: exprNext({expr:EParenthesis(e), pos:punion(p1, p2)});
 					case [t = parseTypeHint(), {tok:PClose, pos:p2}]: exprNext({expr:ECheckType(e, t), pos:punion(p1, p2)});
+					case _: unexpected();
 				}
 			case [{tok:BkOpen, pos:p1}, l = parseArrayDecl(), {tok:BkClose, pos:p2}]: exprNext({expr: EArrayDecl(l), pos:punion(p1,p2)});
 			case [inl = inlineFunction(), name = parseOptional(dollarIdent), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma,parseFunParam), {tok:PClose}, t = parseTypeOpt()]:
