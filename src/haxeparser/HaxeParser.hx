@@ -1003,7 +1003,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseConstraintParam() {
 		return switch stream {
-			case [name = typeName()]:
+			case [meta = parseMeta(), name = typeName()]:
 				var params = [];
 				var ctl = switch stream {
 					case [{tok:DblDot}]:
@@ -1017,7 +1017,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				{
 					name: name,
 					params: params,
-					constraints: ctl
+					constraints: ctl,
+					meta: meta
 				}
 		}
 	}
