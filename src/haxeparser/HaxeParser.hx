@@ -441,6 +441,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Const(CIdent(i)),pos:p}]: { name: i, pos: p};
 			case [{tok:Dollar(i), pos:p}]: { name: "$" + i, pos: p};
 			case [{tok:Kwd(KwdMacro), pos: p} && pack.length > 0]: { name: "macro", pos: p };
+			case [{tok:Kwd(KwdExtern), pos: p} && pack.length > 0]: { name: "extern", pos: p };
 		}
 	}
 
@@ -1268,6 +1269,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						exprNext({expr:EField(e1,f), pos:punion(e1.pos,p2)});
 					case [{tok:Kwd(KwdMacro), pos:p2} && p.max == p2.min]:
 						exprNext({expr:EField(e1,"macro"), pos:punion(e1.pos,p2)});
+					case [{tok:Kwd(KwdExtern), pos:p2} && p.max == p2.min]:
+						exprNext({expr:EField(e1,"extern"), pos:punion(e1.pos,p2)});
 					case _:
 						switch(e1) {
 							case {expr: EConst(CInt(v)), pos:p2} if (p2.max == p.min):
