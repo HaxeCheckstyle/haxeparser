@@ -714,7 +714,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseTypeHint() {
 		return switch stream {
-			case [{tok:DblDot}, t = parseComplexType()]: t;
+			case [{tok: DblDot}, t = parseComplexType()]: t;
 			case _: null;
 		}
 	}
@@ -1181,6 +1181,10 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case [{tok:POpen}, e = expr()]:
 						switch stream {
 							case [{tok:Comma}, t = parseComplexType(), {tok:PClose, pos:p2}]: exprNext({expr:ECast(e,t), pos: punion(p1,p2)});
+							case [t = parseTypeHint(), {tok:PClose, pos:p2}]:
+								var pu = punion(p1, p2);
+								var ep = {expr: EParenthesis({expr: ECheckType(e, t), pos: pu}), pos: pu};
+								exprNext({expr: ECast(ep, null), pos: punion(p1, pu)});
 							case [{tok:PClose, pos:p2}]: exprNext({expr:ECast(e,null),pos:punion(p1,p2)});
 							case _: unexpected();
 						}
