@@ -3,9 +3,6 @@ class Test extends haxe.unit.TestCase {
 	static var whitespaceEreg = ~/[\t\n\r]*/g;
 
 	static function main() {
-		//workaround for haxe issue #2902
-		var p:hxparse.Parser<hxparse.LexerTokenSource<haxeparser.Data.Token>, haxeparser.Data.Token>;
-
 		var r = new haxe.unit.TestRunner();
 		r.add(new Test());
 		#if haxe_std_path
