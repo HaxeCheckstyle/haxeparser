@@ -1178,14 +1178,16 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Kwd(KwdNull), pos:p}]: exprNext({expr: EConst(CIdent("null")), pos:p});
 			case [{tok:Kwd(KwdCast), pos:p1}]:
 				switch stream {
-					case [{tok:POpen}, e = expr()]:
+					case [{tok:POpen, pos:pp}, e = expr()]:
 						switch stream {
 							case [{tok:Comma}, t = parseComplexType(), {tok:PClose, pos:p2}]: exprNext({expr:ECast(e,t), pos: punion(p1,p2)});
 							case [t = parseTypeHint(), {tok:PClose, pos:p2}]:
 								var pu = punion(p1, p2);
 								var ep = {expr: EParenthesis({expr: ECheckType(e, t), pos: pu}), pos: pu};
 								exprNext({expr: ECast(ep, null), pos: punion(p1, pu)});
-							case [{tok:PClose, pos:p2}]: exprNext({expr:ECast(e,null),pos:punion(p1,p2)});
+							case [{tok:PClose, pos:p2}]:
+								var ep = exprNext({expr: EParenthesis(e), pos: punion(pp, p2)});
+								exprNext({expr:ECast(ep,null),pos:punion(p1,ep.pos)});
 							case _: unexpected();
 						}
 					case [e = secureExpr()]: exprNext({expr:ECast(e,null), pos:punion(p1, e.pos)});
