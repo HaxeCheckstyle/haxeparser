@@ -712,9 +712,16 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseTypeOpt() {
+	function parseTypeHint() {
 		return switch stream {
 			case [{tok:DblDot}, t = parseComplexType()]: t;
+			case _: null;
+		}
+	}
+
+	function parseTypeOpt() {
+		return switch stream {
+			case [t = parseTypeHint()]: t;
 			case _: null;
 		}
 	}
@@ -818,7 +825,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseTypeAnonymous(opt:Bool):Array<Field> {
 		return switch stream {
-			case [id = ident(), {tok:DblDot}, t = parseComplexType()]:
+			case [id = ident(), t = parseTypeHint()]:
 				function next(p2,acc) {
 					var t = !opt ? t : switch(t) {
 						case TPath({pack:[], name:"Null"}): t;
@@ -856,10 +863,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case [{tok:POpen}, l = psep(Comma, parseEnumParam), {tok:PClose}]: l;
 					case _: [];
 				}
-				var t = switch stream {
-					case [{tok:DblDot}, t = parseComplexType()]: t;
-					case _: null;
-				}
+				var t = parseTypeOpt();
 				var p2 = switch stream {
 					case [p = semicolon()]: p;
 					case _: unexpected();
@@ -878,8 +882,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseEnumParam() {
 		return switch stream {
-			case [{tok:Question}, name = ident(), {tok:DblDot}, t = parseComplexType()]: { name: name.name, opt: true, type: t};
-			case [name = ident(), {tok:DblDot}, t = parseComplexType()]: { name: name.name, opt: false, type: t };
+			case [{tok:Question}, name = ident(), t = parseTypeHint()]: { name: name.name, opt: true, type: t};
+			case [name = ident(), t = parseTypeHint()]: { name: name.name, opt: false, type: t };
 		}
 	}
 
@@ -891,10 +895,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case [{tok:Kwd(KwdVar), pos:p1}, name = ident()]:
 						switch stream {
 							case [{tok:POpen}, i1 = propertyIdent(), {tok:Comma}, i2 = propertyIdent(), {tok:PClose}]:
-								var t = switch stream {
-									case [{tok:DblDot}, t = parseComplexType()]: t;
-									case _: null;
-								}
+								var t = parseTypeOpt();
 								var e = switch stream {
 									case [{tok:Binop(OpAssign)}, e = toplevelExpr(), p2 = semicolon()]: { expr: e, pos: p2 };
 									case [{tok:Semicolon, pos:p2}]: { expr: null, pos: p2 };
@@ -990,8 +991,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseFunParamType() {
 		return switch stream {
-			case [{tok:Question}, id = ident(), {tok:DblDot}, t = parseComplexType()]: { name: id.name, opt: true, type: t};
-			case [ id = ident(), {tok:DblDot}, t = parseComplexType()]: { name: id.name, opt: false, type: t};
+			case [{tok:Question}, id = ident(), t = parseTypeHint()]: { name: id.name, opt: true, type: t};
+			case [ id = ident(), t = parseTypeHint()]: { name: id.name, opt: false, type: t};
 		}
 	}
 
@@ -1194,7 +1195,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:POpen, pos: p1}, e = expr()]:
 				switch stream {
 					case [{tok:PClose, pos:p2}]: exprNext({expr:EParenthesis(e), pos:punion(p1, p2)});
-					case [{tok:DblDot}, t = parseComplexType(), {tok:PClose, pos:p2}]: exprNext({expr:ECheckType(e, t), pos:punion(p1, p2)});
+					case [t = parseTypeHint(), {tok:PClose, pos:p2}]: exprNext({expr:ECheckType(e, t), pos:punion(p1, p2)});
 				}
 			case [{tok:BkOpen, pos:p1}, l = parseArrayDecl(), {tok:BkClose, pos:p2}]: exprNext({expr: EArrayDecl(l), pos:punion(p1,p2)});
 			case [inl = inlineFunction(), name = parseOptional(dollarIdent), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma,parseFunParam), {tok:PClose}, t = parseTypeOpt()]:
@@ -1372,7 +1373,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch stream {
 			case [{tok:Kwd(KwdCatch), pos:p}, {tok:POpen}, id = ident(), ]:
 				switch stream {
-					case [{tok:DblDot}, t = parseComplexType(), {tok:PClose}]:
+					case [t = parseTypeHint(), {tok:PClose}]:
 						{
 							name: id.name,
 							type: t,
