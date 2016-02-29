@@ -15,6 +15,9 @@ class TestStd extends haxe.unit.TestCase {
 			try {
 				hxparse.Utils.catchErrors(input, function() {
 					var parser = new haxeparser.HaxeParser(input, path);
+					parser.define("cross");
+					parser.define("scriptable");
+					parser.define("unsafe");
 					try {
 						parser.parse();
 					} catch(e:haxeparser.HaxeParser.ParserError) {
