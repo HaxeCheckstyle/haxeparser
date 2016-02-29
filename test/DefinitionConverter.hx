@@ -15,7 +15,7 @@ class DefinitionConverter {
 		td.pack = pack;
 		return td;
 	}
-	
+
 	static function getGeneralDefinition<A, B>(d:Definition<A, B>) {
 		return {
 			pack: [],
@@ -28,7 +28,7 @@ class DefinitionConverter {
 			fields: []
 		}
 	}
-	
+
 	static function convertClass(c:Definition<ClassFlag, Array<Field>>) {
 		var def = getGeneralDefinition(c);
 		var isInterface = false;
@@ -47,7 +47,7 @@ class DefinitionConverter {
 		def.kind = TDClass(superClass, implementsList, isInterface);
 		return def;
 	}
-	
+
 	static function convertAbstract(a:Definition<AbstractFlag, Array<Field>>) {
 		var def = getGeneralDefinition(a);
 		var to = [];
@@ -59,6 +59,7 @@ class DefinitionConverter {
 				case AToType(t): to.push(t);
 				case AIsType(t): thisT = t;
 				case APrivAbstract:
+				case AExtern: def.isExtern = true;
 			}
 		}
 		def.fields = a.data;
@@ -91,7 +92,7 @@ class DefinitionConverter {
 			kind: kind
 		}
 	}
-	
+
 	static function convertEnum(en:Definition<EnumFlag, Array<EnumConstructor>>) {
 		var def = getGeneralDefinition(en);
 		def.kind = TDEnum;

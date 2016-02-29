@@ -115,7 +115,7 @@ class Token {
 		this.tok = tok;
 		this.pos = pos;
 	}
-	
+
 	public function toString() {
 		return TokenDefPrinter.print(tok);
 	}
@@ -167,6 +167,7 @@ enum AbstractFlag {
 	AFromType(ct:ComplexType);
 	AToType(ct:ComplexType);
 	AIsType(ct:ComplexType);
+	AExtern;
 }
 
 enum EnumFlag {

@@ -553,7 +553,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 							data: t
 						}), pos: punion(p1,p2)};
 					case [{tok:Kwd(KwdAbstract), pos:p1}, name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = parseRepeat(parseAbstractRelations), {tok:BrOpen}, fl = parseClassFields(false, p1)]:
-						var flags = c.map(function(flag) return switch(flag.e) { case EPrivate: APrivAbstract; case EExtern: throw 'extern abstract is not allowed'; });
+						var flags = c.map(function(flag) return switch(flag.e) { case EPrivate: APrivAbstract; case EExtern: AExtern; });
 						if (st != null) {
 							flags.push(AIsType(st));
 						}
