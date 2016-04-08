@@ -8,7 +8,9 @@ class Test extends haxe.unit.TestCase {
 		#if haxe_std_path
 		r.add(new TestStd());
 		#end
-		r.run();
+		haxe.Timer.measure(function() {
+			r.run();
+		});
 	}
 
 	function testConst() {
