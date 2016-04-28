@@ -133,7 +133,7 @@ class TokenDefPrinter {
 			case Dollar(s): '$$$s';
 			case Unop(op): new haxe.macro.Printer("").printUnop(op);
 			case Binop(op): new haxe.macro.Printer("").printBinop(op);
-			case Comment(s): '/*$s/*';
+			case Comment(s): '/*$s*/';
 			case CommentLine(s): '//$s';
 			case IntInterval(s): '$s...';
 			case Semicolon: ";";
