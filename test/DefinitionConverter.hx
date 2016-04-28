@@ -9,7 +9,7 @@ class DefinitionConverter {
 			case EClass(d): convertClass(d);
 			case EEnum(d): convertEnum(d);
 			case EAbstract(d): convertAbstract(d);
-			//case ETypedef(d): convertTypedef(d);
+			case ETypedef(d): convertTypedef(d);
 			case _: throw 'Cannot convert $t';
 		}
 		td.pack = pack;
@@ -45,6 +45,12 @@ class DefinitionConverter {
 		}
 		def.fields = c.data;
 		def.kind = TDClass(superClass, implementsList, isInterface);
+		return def;
+	}
+
+	static function convertTypedef(t:Definition<EnumFlag, ComplexType>) {
+		var def = getGeneralDefinition(t);
+		def.kind = TDAlias(t.data);
 		return def;
 	}
 

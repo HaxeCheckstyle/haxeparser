@@ -447,6 +447,10 @@ class Test extends haxe.unit.TestCase {
 		peq("@enum abstract Test(Int) {}", "@enum abstract Test(Int) {}");
 	}
 
+	function testIssue31() {
+		peq("typedef TypedefName = {>OneTypedef,>OtherTypedef,}", "typedef TypedefName = {>OneTypedef,>OtherTypedef,};");
+	}
+
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();

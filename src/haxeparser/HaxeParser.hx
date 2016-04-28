@@ -731,16 +731,24 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return parseComplexTypeNext(t);
 	}
 
+	function parseStructuralExtension() {
+		return switch stream {
+			case [{tok: Binop(OpGt)}, t = parseTypePath(), {tok: Comma}]: t;
+		}
+	}
+
 	function parseComplexTypeInner():ComplexType {
 		return switch stream {
 			case [{tok:POpen}, t = parseComplexType(), {tok:PClose}]: TParent(t);
 			case [{tok:BrOpen, pos: p1}]:
 				switch stream {
 					case [l = parseTypeAnonymous(false)]: TAnonymous(l);
-					case [{tok:Binop(OpGt)}, t = parseTypePath(), {tok:Comma}]:
+					case [t = parseStructuralExtension()]:
+						var tl = parseRepeat(parseStructuralExtension);
+						tl.unshift(t);
 						switch stream {
-							case [l = parseTypeAnonymous(false)]: TExtend([t],l);
-							case [fl = parseClassFields(true, p1)]: TExtend([t], fl.fields);
+							case [l = parseTypeAnonymous(false)]: TExtend(tl,l);
+							case [fl = parseClassFields(true, p1)]: TExtend(tl, fl.fields);
 							case _: unexpected();
 						}
 					case [l = parseClassFields(true, p1)]: TAnonymous(l.fields);
