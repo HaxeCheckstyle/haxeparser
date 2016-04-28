@@ -442,6 +442,11 @@ class Test extends haxe.unit.TestCase {
 		eeq("(null : { a:Int, b:String, c:Bool })", "(null : { var a : Int; var b : String; var c : Bool; })");
 	}
 
+	function testIssue30() {
+		peq("@:enum abstract Test(Int) {}", "@:enum abstract Test(Int) {}");
+		peq("@enum abstract Test(Int) {}", "@enum abstract Test(Int) {}");
+	}
+
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();

@@ -690,11 +690,11 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	function metaName() {
 		return switch stream {
 			case [{tok:Const(CIdent(i)), pos:p}]: {name: i, pos: p};
-			case [{tok:Kwd(k), pos:p}]: {name: k.getName().toLowerCase(), pos:p};
+			case [{tok:Kwd(k), pos:p}]: {name: KeywordPrinter.toString(k), pos:p};
 			case [{tok:DblDot}]:
 				switch stream {
 					case [{tok:Const(CIdent(i)), pos:p}]: {name: ':$i', pos: p};
-					case [{tok:Kwd(k), pos:p}]: {name: ":" +k.getName().toLowerCase(), pos:p};
+					case [{tok:Kwd(k), pos:p}]: {name: ":" + KeywordPrinter.toString(k), pos:p};
 				}
 		}
 	}

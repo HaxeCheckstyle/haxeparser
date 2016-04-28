@@ -47,6 +47,55 @@ enum Keyword {
 	KwdMacro;
 }
 
+class KeywordPrinter {
+	static public function toString(kwd:Keyword) {
+		return switch(kwd) {
+			case KwdFunction: "function";
+			case KwdClass: "class";
+			case KwdVar: "var";
+			case KwdIf: "if";
+			case KwdElse: "else";
+			case KwdWhile: "while";
+			case KwdDo: "do";
+			case KwdFor: "for";
+			case KwdBreak: "break";
+			case KwdContinue: "continue";
+			case KwdReturn: "return";
+			case KwdExtends: "extends";
+			case KwdImplements: "implements";
+			case KwdImport: "import";
+			case KwdSwitch: "switch";
+			case KwdCase: "case";
+			case KwdDefault: "default";
+			case KwdStatic: "static";
+			case KwdPublic: "public";
+			case KwdPrivate: "private";
+			case KwdTry: "try";
+			case KwdCatch: "catch";
+			case KwdNew: "new";
+			case KwdThis: "this";
+			case KwdThrow: "throw";
+			case KwdExtern: "extern";
+			case KwdEnum: "enum";
+			case KwdIn: "in";
+			case KwdInterface: "interface";
+			case KwdUntyped: "untyped";
+			case KwdCast: "cast";
+			case KwdOverride: "override";
+			case KwdTypedef: "typedef";
+ 			case KwdDynamic: "dynamic";
+			case KwdPackage: "package";
+			case KwdInline: "inline";
+			case KwdUsing: "using";
+			case KwdNull: "null";
+			case KwdTrue: "true";
+			case KwdFalse: "false";
+			case KwdAbstract: "abstract";
+			case KwdMacro: "macro";
+		}
+	}
+}
+
 enum TokenDef {
 	Kwd(k:Keyword);
 	Const(c:haxe.macro.Expr.Constant);
@@ -74,7 +123,7 @@ enum TokenDef {
 }
 
 class TokenDefPrinter {
-	static public function print(def:TokenDef) {
+	static public function toString(def:TokenDef) {
 		return switch(def) {
 			case Kwd(k): k.getName().substr(3).toLowerCase();
 			case Const(CInt(s) | CFloat(s) | CIdent(s)): s;
@@ -103,6 +152,11 @@ class TokenDefPrinter {
 			case Eof: "<eof>";
 		}
 	}
+
+	@:deprecated("Use toString() instead")
+	static public inline function print(def:TokenDef) {
+		return toString(def);
+	}
 }
 
 class Token {
@@ -117,7 +171,7 @@ class Token {
 	}
 
 	public function toString() {
-		return TokenDefPrinter.print(tok);
+		return TokenDefPrinter.toString(tok);
 	}
 }
 
