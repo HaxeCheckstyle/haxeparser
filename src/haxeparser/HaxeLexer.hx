@@ -11,6 +11,7 @@ enum LexerErrorMsg {
 	UnterminatedEscapeSequence;
 	InvalidEscapeSequence(c:String);
 	UnknownEscapeSequence(c:String);
+	UnclosedCode;
 }
 
 class LexerError {
@@ -31,20 +32,20 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			max: p.pmax
 		};
 	}
-	
+
 	static function mk(lexer:Lexer, td) {
 		return new Token(td, mkPos(lexer.curPos()));
 	}
-	
+
 	// @:mapping generates a map with lowercase enum constructor names as keys
 	// and the constructor itself as value
 	static var keywords = @:mapping(3) Data.Keyword;
-	
+
 	static var buf = new StringBuf();
-	
+
 	static var ident = "_*[a-z][a-zA-Z0-9_]*|_+|_+[0-9][_a-zA-Z0-9]*";
 	static var idtype = "_*[A-Z][a-zA-Z0-9_]*";
-	
+
 	// @:rule wraps the expression to the right of => with function(lexer) return
 	public static var tok = @:rule [
 		"" => mk(lexer, Eof),
@@ -150,7 +151,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		},
 		idtype => mk(lexer, Const(CIdent(lexer.current))),
 	];
-	
+
 	public static var string = @:rule [
 		"\\\\\\\\" => {
 			buf.add("\\\\");
@@ -170,7 +171,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			lexer.token(string);
 		}
 	];
-	
+
 	public static var string2 = @:rule [
 		"\\\\\\\\" => {
 			buf.add("\\\\");
@@ -185,12 +186,59 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			lexer.token(string2);
 		},
 		"'" => lexer.curPos().pmax,
-		'[^\\\\\']+' => {
+		"($$)|(\\$)|$" => {
+			buf.add("$");
+			lexer.token(string2);
+		},
+		"${" => {
+			var pmin = lexer.curPos();
+			buf.add(lexer.current);
+			try lexer.token(codeString) catch(e:haxe.io.Eof) throw new LexerError(UnclosedCode, mkPos(pmin));
+			lexer.token(string2);
+		},
+		"[^\\\\\\r\n$']+" => {
 			buf.add(lexer.current);
 			lexer.token(string2);
 		}
 	];
-	
+
+	public static var codeString = @:rule [
+		"{|/" => {
+			buf.add(lexer.current);
+			lexer.token(codeString);
+		},
+		"}" => {
+			buf.add(lexer.current);
+		},
+		'"' => {
+			buf.addChar('"'.code);
+			var pmin = lexer.curPos();
+			try lexer.token(string) catch (e:haxe.io.Eof) throw new LexerError(UnterminatedString, mkPos(pmin));
+			buf.addChar('"'.code);
+			lexer.token(codeString);
+		},
+		"'" => {
+			buf.addChar("'".code);
+			var pmin = lexer.curPos();
+			try lexer.token(string2) catch (e:haxe.io.Eof) throw new LexerError(UnterminatedString, mkPos(pmin));
+			buf.addChar("'".code);
+			lexer.token(codeString);
+		},
+		'/\\*' => {
+			var pmin = lexer.curPos();
+			try lexer.token(comment) catch (e:haxe.io.Eof) throw new LexerError(UnclosedComment, mkPos(pmin));
+			lexer.token(codeString);
+		},
+		"//[^\n\r]*" => {
+			buf.add(lexer.current);
+			lexer.token(codeString);
+		},
+		"[^/\"'{}\n\r]+" => {
+			buf.add(lexer.current);
+			lexer.token(codeString);
+		}
+	];
+
 	public static var comment = @:rule [
 		"*/" => lexer.curPos().pmax,
 		"*" => {
@@ -242,7 +290,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			{ pmax:lexer.curPos().pmax, opt:lexer.current };
 		}
 	];
-	
+
 	static inline function unescapePos(pos:Position, index:Int, length:Int) {
 		return {
 			file: pos.file,
@@ -250,7 +298,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			max: pos.min + index + length
 		}
 	}
-	
+
 	static function unescape(s:String, pos:Position) {
 		var b = new StringBuf();
 		var i = 0;

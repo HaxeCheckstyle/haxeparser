@@ -451,6 +451,10 @@ class Test extends haxe.unit.TestCase {
 		peq("typedef TypedefName = {>OneTypedef,>OtherTypedef,}", "typedef TypedefName = {>OneTypedef,>OtherTypedef,};");
 	}
 
+	function testIssue32() {
+		peq("class C { static function main() '{${printClassRec(c,'',s)}}';}", "class C {static function main() \"{${printClassRec(c,\\'\\',s)}}\";}");
+	}
+
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();
