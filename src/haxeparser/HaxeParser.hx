@@ -3,7 +3,6 @@ package haxeparser;
 import haxeparser.Data;
 import haxe.macro.Expr;
 import haxe.ds.Option;
-using Lambda;
 
 enum ParserErrorMsg {
 	MissingSemicolon;

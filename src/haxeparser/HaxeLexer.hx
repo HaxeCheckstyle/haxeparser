@@ -196,7 +196,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			try lexer.token(codeString) catch(e:haxe.io.Eof) throw new LexerError(UnclosedCode, mkPos(pmin));
 			lexer.token(string2);
 		},
-		"[^\\\\\\r\n$']+" => {
+		"[^$\\\\']+" => {
 			buf.add(lexer.current);
 			lexer.token(string2);
 		}
