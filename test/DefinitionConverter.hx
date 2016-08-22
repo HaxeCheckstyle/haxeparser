@@ -85,7 +85,8 @@ class DefinitionConverter {
 					name: arg.name,
 					opt: arg.opt,
 					type: arg.type,
-					value: null
+					value: null,
+					meta: []
 				})
 			});
 		}
