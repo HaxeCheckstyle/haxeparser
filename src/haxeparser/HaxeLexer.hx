@@ -46,6 +46,8 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 	static var ident = "_*[a-z][a-zA-Z0-9_]*|_+|_+[0-9][_a-zA-Z0-9]*";
 	static var idtype = "_*[A-Z][a-zA-Z0-9_]*";
 
+	static var integer = "([1-9][0-9]*)|0";
+
 	// @:rule wraps the expression to the right of => with function(lexer) return
 	public static var tok = @:rule [
 		"" => mk(lexer, Eof),
@@ -60,12 +62,12 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			#end
 		},
 		"0x[0-9a-fA-F]+" => mk(lexer, Const(CInt(lexer.current))),
-		"[0-9]+" => mk(lexer, Const(CInt(lexer.current))),
-		"[0-9]+\\.[0-9]+" => mk(lexer, Const(CFloat(lexer.current))),
+		integer => mk(lexer, Const(CInt(lexer.current))),
+		integer + ".[0-9]+" => mk(lexer, Const(CFloat(lexer.current))),
 		"\\.[0-9]+" => mk(lexer, Const(CFloat(lexer.current))),
-		"[0-9]+[eE][\\+\\-]?[0-9]+" => mk(lexer,Const(CFloat(lexer.current))),
-		"[0-9]+\\.[0-9]*[eE][\\+\\-]?[0-9]+" => mk(lexer,Const(CFloat(lexer.current))),
-		"[0-9]+\\.\\.\\." => mk(lexer,IntInterval(lexer.current.substr(0,-3))),
+		integer + "[eE][\\+\\-]?[0-9]+" => mk(lexer,Const(CFloat(lexer.current))),
+		integer + "\\.[0-9]*[eE][\\+\\-]?[0-9]+" => mk(lexer,Const(CFloat(lexer.current))),
+		integer + "\\.\\.\\." => mk(lexer,IntInterval(lexer.current.substr(0,-3))),
 		"//[^\n\r]*" => mk(lexer, CommentLine(lexer.current.substr(2))),
 		"+\\+" => mk(lexer,Unop(OpIncrement)),
 		"--" => mk(lexer,Unop(OpDecrement)),
