@@ -1287,6 +1287,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						exprNext({expr:EField(e1,"macro"), pos:punion(e1.pos,p2)});
 					case [{tok:Kwd(KwdExtern), pos:p2} && p.max == p2.min]:
 						exprNext({expr:EField(e1,"extern"), pos:punion(e1.pos,p2)});
+					case [{tok:Kwd(KwdNew), pos:p2} && p.max == p2.min]:
+						exprNext({expr:EField(e1,"new"), pos:punion(e1.pos,p2)});
 					case _:
 						switch(e1) {
 							case {expr: EConst(CInt(v)), pos:p2} if (p2.max == p.min):
