@@ -355,13 +355,13 @@ class Test extends haxe.unit.TestCase {
 
 		err = perr("#if true #error \"Test passed\" #else 2 #end");
 		assertTrue(Std.is(err, haxeparser.HaxeParser.ParserError));
-		assertTrue(err.msg.match(haxeparser.HaxeParser.ParserErrorMsg.Custom("Test passed")));
+		assertTrue(err.msg.match(haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")));
 		assertEquals(9, err.pos.min);
 		assertEquals(15, err.pos.max);
 
 		err = perr("#if false 1 #else #error \"Test passed\" #end");
 		assertTrue(Std.is(err, haxeparser.HaxeParser.ParserError));
-		assertTrue(err.msg.match(haxeparser.HaxeParser.ParserErrorMsg.Custom("Test passed")));
+		assertTrue(err.msg.match(haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")));
 		assertEquals(18, err.pos.min);
 		assertEquals(24, err.pos.max);
 	}

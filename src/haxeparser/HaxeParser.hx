@@ -11,6 +11,7 @@ enum ParserErrorMsg {
 	UnclosedMacro;
 	Unimplemented;
 	Custom(s:String);
+	SharpError(s:String);
 }
 
 class ParserError {
@@ -127,7 +128,7 @@ class HaxeTokenSource {
 				case [Sharp("error"),Consume]:
 					var nextTok = lexerToken();
 					switch nextTok.tok {
-						case Const(CString(str)):throw new ParserError(Custom(str), tk.pos);
+						case Const(CString(str)):throw new ParserError(SharpError(str), tk.pos);
 						case _:throw new ParserError(Unimplemented, tk.pos);
 					}
 				case [Sharp("if"),Consume]:

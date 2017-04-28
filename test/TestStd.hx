@@ -23,8 +23,12 @@ class TestStd extends haxe.unit.TestCase {
 						numFiles++;
 						parser.parse();
 					} catch(e:haxeparser.HaxeParser.ParserError) {
-						var pMsg = new hxparse.Position(e.pos.file, e.pos.min, e.pos.max).format(input);
-						throw('$pMsg: ${e.msg}\n');
+						switch (e.msg) {
+							case SharpError(_):
+							case _:
+								var pMsg = new hxparse.Position(e.pos.file, e.pos.min, e.pos.max).format(input);
+								throw('$pMsg: ${e.msg}\n');
+						}
 					}
 				});
 			} catch(e:Dynamic) {
