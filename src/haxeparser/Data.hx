@@ -30,7 +30,9 @@ enum Keyword {
 	KwdThrow;
 	KwdExtern;
 	KwdEnum;
+	#if (haxe_ver < 4)
 	KwdIn;
+	#end
 	KwdInterface;
 	KwdUntyped;
 	KwdCast;
@@ -77,7 +79,9 @@ class KeywordPrinter {
 			case KwdThrow: "throw";
 			case KwdExtern: "extern";
 			case KwdEnum: "enum";
+			#if (haxe_ver < 4)
 			case KwdIn: "in";
+			#end
 			case KwdInterface: "interface";
 			case KwdUntyped: "untyped";
 			case KwdCast: "cast";

@@ -11,6 +11,7 @@ class Test extends haxe.unit.TestCase {
 		haxe.Timer.measure(function() {
 			r.run();
 		});
+		Sys.exit(r.result.success ? 0 : 1);
 	}
 
 	function testConst() {
