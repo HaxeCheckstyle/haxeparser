@@ -25,7 +25,8 @@ class DefinitionConverter {
 			pos: null,
 			isExtern: false,
 			kind: TDStructure,
-			fields: []
+			fields: [],
+			doc: null
 		}
 	}
 

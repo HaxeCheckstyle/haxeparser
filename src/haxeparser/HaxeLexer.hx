@@ -106,6 +106,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		"/" => mk(lexer,Binop(OpDiv)),
 		"-" => mk(lexer,Binop(OpSub)),
 		"=" => mk(lexer,Binop(OpAssign)),
+		"in" => mk(lexer,Binop(OpIn)),
 		"[" => mk(lexer, BkOpen),
 		"]" => mk(lexer, BkClose),
 		"{" => mk(lexer, BrOpen),

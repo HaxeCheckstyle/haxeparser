@@ -30,7 +30,6 @@ enum Keyword {
 	KwdThrow;
 	KwdExtern;
 	KwdEnum;
-	KwdIn;
 	KwdInterface;
 	KwdUntyped;
 	KwdCast;
@@ -77,7 +76,6 @@ class KeywordPrinter {
 			case KwdThrow: "throw";
 			case KwdExtern: "extern";
 			case KwdEnum: "enum";
-			case KwdIn: "in";
 			case KwdInterface: "interface";
 			case KwdUntyped: "untyped";
 			case KwdCast: "cast";
