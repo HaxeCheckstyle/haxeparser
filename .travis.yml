@@ -1,5 +1,9 @@
 language: haxe
 
+haxe:
+  - 3.4.2
+  - development
+
 before_install:
   - sudo apt-get update
   - sudo apt-get install mono-devel
