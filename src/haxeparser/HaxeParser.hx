@@ -327,20 +327,20 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		var left = true;
 		var right = false;
 		return switch(op) {
-			case OpMod : {p: 0, left: left};
-			case OpMult | OpDiv : {p: 0, left: left};
-			case OpAdd | OpSub : {p: 0, left: left};
-			case OpShl | OpShr | OpUShr : {p: 0, left: left};
-			case OpOr | OpAnd | OpXor : {p: 0, left: left};
-			case OpEq | OpNotEq | OpGt | OpLt | OpGte | OpLte : {p: 0, left: left};
-			case OpInterval : {p: 0, left: left};
-			case OpBoolAnd : {p: 0, left: left};
-			case OpBoolOr : {p: 0, left: left};
-			case OpArrow : {p: 0, left: left};
 			#if (haxe_ver >= 4)
-			case OpIn : {p: 9, left: right};
+			case OpIn : {p: 0, left: right};
 			#end
-			case OpAssign | OpAssignOp(_) : {p:10, left:right};
+			case OpMod : {p: 1, left: left};
+			case OpMult | OpDiv : {p: 2, left: left};
+			case OpAdd | OpSub : {p: 3, left: left};
+			case OpShl | OpShr | OpUShr : {p: 4, left: left};
+			case OpOr | OpAnd | OpXor : {p: 5, left: left};
+			case OpEq | OpNotEq | OpGt | OpLt | OpGte | OpLte : {p: 6, left: left};
+			case OpInterval : {p: 7, left: left};
+			case OpBoolAnd : {p: 8, left: left};
+			case OpBoolOr : {p: 9, left: left};
+			case OpArrow : {p: 10, left: left};
+			case OpAssign | OpAssignOp(_) : {p:11, left:right};
 		}
 	}
 

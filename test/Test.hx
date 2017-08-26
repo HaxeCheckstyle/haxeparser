@@ -184,6 +184,30 @@ class Test extends haxe.unit.TestCase {
 
 	function testIn() {
 		eeq("a in b");
+		paeq("a in b in c", "(a in (b in c))");
+		paeq("a % b in c", "(a % (b in c))");
+		paeq("a * b in c", "(a * (b in c))");
+		paeq("a / b in c", "(a / (b in c))");
+		paeq("a + b in c", "(a + (b in c))");
+		paeq("a - b in c", "(a - (b in c))");
+		paeq("a << b in c", "(a << (b in c))");
+		paeq("a >> b in c", "(a >> (b in c))");
+		paeq("a >>> b in c", "(a >>> (b in c))");
+		paeq("a | b in c", "(a | (b in c))");
+		paeq("a & b in c", "(a & (b in c))");
+		paeq("a ^ b in c", "(a ^ (b in c))");
+		paeq("a == b in c", "(a == (b in c))");
+		paeq("a != b in c", "(a != (b in c))");
+		paeq("a > b in c", "(a > (b in c))");
+		paeq("a >= b in c", "(a >= (b in c))");
+		paeq("a < b in c", "(a < (b in c))");
+		paeq("a <= b in c", "(a <= (b in c))");
+		paeq("a...b in c", "(a ... (b in c))");
+		paeq("a || b in c", "(a || (b in c))");
+		paeq("a && b in c", "(a && (b in c))");
+		paeq("a => b in c", "(a => (b in c))");
+		paeq("a = b in c", "(a = (b in c))");
+		paeq("a += b in c", "(a += (b in c))");
 	}
 
 	function testIf() {
@@ -501,5 +525,24 @@ class Test extends haxe.unit.TestCase {
 			expectedCode = inputCode;
 		}
 		assertEquals(whitespaceEreg.replace(expectedCode, ""), whitespaceEreg.replace(inputParsed, ""), p);
+	}
+
+	function parentize(e:haxe.macro.Expr) {
+		return switch e.expr {
+			case EConst(_): e;
+			case _:
+				e = haxe.macro.ExprTools.map(e, parentize);
+				{expr: haxe.macro.Expr.ExprDef.EParenthesis(e), pos: e.pos};
+		}
+	}
+
+	function paeq(inputCode:String, ?expectedCode:String, ?p:haxe.PosInfos) {
+		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
+		var expr = parser.expr();
+		var printer = new haxe.macro.Printer();
+		if (expectedCode == null) {
+			expectedCode = inputCode;
+		}
+		assertEquals(printer.printExpr(parentize(expr)), expectedCode, p);
 	}
 }
