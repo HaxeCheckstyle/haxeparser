@@ -1046,16 +1046,16 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function block1() {
 		return switch stream {
-			case [{tok:Const(CIdent(name)), pos:p}]: block2(name, CIdent(name), p);
-			case [{tok:Const(CString(name)), pos:p}]: block2(quoteIdent(name), CString(name), p);
+			case [{tok:Const(CIdent(name)), pos:p}]: block2(name, Unquoted, CIdent(name), p);
+			case [{tok:Const(CString(name)), pos:p}]: block2(quoteIdent(name), Quoted, CString(name), p);
 			case [b = block([])]: EBlock(b);
 		}
 	}
 
-	function block2(name:String, ident:Constant, p:Position) {
+	function block2(name:String, quotes:QuoteStatus, ident:Constant, p:Position) {
 		return switch stream {
 			case [{tok:DblDot}, e = expr(), l = parseObjDecl()]:
-				l.unshift({field:name, expr:e});
+				l.unshift({field:name, expr:e, quotes:quotes});
 				EObjectDecl(l);
 			case _:
 				var e = exprNext({expr:EConst(ident), pos: p});
@@ -1088,10 +1088,10 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				case [{tok:Comma}]:
 					switch stream {
 						case [id = ident(), {tok:DblDot}, e = expr()]:
-							acc.push({field:id.name, expr: e});
+							acc.push({field:id.name, expr: e, quotes: Unquoted});
 						case [{tok:Const(CString(name))}, {tok:DblDot}, e = expr()]:
 							//apush(l,{field:quoteIdent(name), expr: e});
-							acc.push({field:quoteIdent(name), expr: e});
+							acc.push({field:quoteIdent(name), expr: e, quotes: Quoted});
 						case _:
 							break;
 					}
@@ -1355,6 +1355,13 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
+	function parseExprOrVar() {
+		return switch stream {
+			case [{tok:Kwd(KwdVar),pos:p1}, name = dollarIdent()]: { expr: EVars([{name: name.name, type:null, expr:null}]), pos: p1 };
+			case [e = expr()]: e;
+		}
+	}
+
 	function parseSwitchCases() {
 		var cases = [];
 		var def = null;
@@ -1378,7 +1385,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						throw new ParserError(DuplicateDefault, p1);
 					}
 					def = e;
-				case [{tok:Kwd(KwdCase), pos:p1}, el = psep(Comma,expr), eg = parseOptional(parseGuard), {tok:DblDot}]:
+				case [{tok:Kwd(KwdCase), pos:p1}, el = psep(Comma,parseExprOrVar), eg = parseOptional(parseGuard), {tok:DblDot}]:
 					var b = block([]);
 					var e = caseBlock(b, p1);
 					cases.push({values:el,guard:eg,expr:e});
@@ -1528,7 +1535,7 @@ private class Reificator{
 		return {expr:EConst(CIdent(s)),pos:p};
 	}
 
-	function toObj(fields:Array<{field:String, expr:Expr}>, p:Position):Expr{
+	function toObj(fields:Array<{field:String, expr:Expr, quotes:QuoteStatus}>, p:Position):Expr{
 		return {expr:EObjectDecl(fields),pos:p};
 	}
 
@@ -1548,13 +1555,13 @@ private class Reificator{
 	}
 
 	function toTPath(t:TypePath, p:Position):Expr{
-		var fields:Array<{field:String, expr:Expr}> = [
-		{field:"pack",   expr:toArray(toString, t.pack, p)},
-		{field:"name",   expr:toString(t.name, p)},
-		{field:"params", expr:toArray(toTParam, t.params, p)}
+		var fields:Array<{field:String, expr:Expr, quotes:QuoteStatus}> = [
+		{field:"pack",   expr:toArray(toString, t.pack, p), quotes:Unquoted},
+		{field:"name",   expr:toString(t.name, p), quotes:Unquoted},
+		{field:"params", expr:toArray(toTParam, t.params, p), quotes:Unquoted}
 		];
 		if(t.sub != null){
-			fields.push({field:"sub",expr:toString(t.sub, p)});
+			fields.push({field:"sub",expr:toString(t.sub, p), quotes:Unquoted});
 		}
 		return toObj(fields, p);
 	}
@@ -1567,6 +1574,7 @@ private class Reificator{
 		return switch(t){
 			case TPath({pack: [], params: [], sub: null, name: n }) if (n.charAt(0) == '$'):
 				toString(n, p);
+			case TNamed(s,t): ct("TNamed", [toString(s,p), toCType(t,p)]);
 			case TPath(t): ct("TPath", [toTPath(t, p)]);
 			case TFunction(args, ret): ct("TFunction", [toArray(toCType, args, p), toCType(ret, p)]);
 			case TAnonymous(fields): ct("TAnonymous", [toArray(toCField, fields, p)]);
@@ -1582,39 +1590,39 @@ private class Reificator{
 			var o = vv.opt;
 			var t = vv.type;
 			var e = vv.value;
-			var fields:Array<{field:String, expr:Expr}> = [
-			{field:"name", expr:toString(n, p)},
-			{field:"opt",  expr:toBool(o, p)},
-			{field:"type", expr:toOpt(toCType, t, p)}
+			var fields:Array<{field:String, expr:Expr, quotes:QuoteStatus}> = [
+			{field:"name", expr:toString(n, p), quotes:Unquoted},
+			{field:"opt",  expr:toBool(o, p), quotes:Unquoted},
+			{field:"type", expr:toOpt(toCType, t, p), quotes:Unquoted}
 			];
 			if (e != null){
-				fields.push({field:"value", expr:toExpr(e, p)});
+				fields.push({field:"value", expr:toExpr(e, p), quotes:Unquoted});
 			}
 			return toObj(fields, p);
 		}
 
 		function fparam(t:TypeParamDecl,p:Position):Expr{
-			var fields:Array<{field:String, expr:Expr}> = [
-			{field:"name",        expr:toString(t.name, p)},
-			{field:"constraints", expr:toArray(toCType, t.constraints, p)},
-			{field:"params",      expr:toArray(fparam, t.params, p)}
+			var fields:Array<{field:String, expr:Expr, quotes:QuoteStatus}> = [
+			{field:"name",        expr:toString(t.name, p), quotes:Unquoted},
+			{field:"constraints", expr:toArray(toCType, t.constraints, p), quotes:Unquoted},
+			{field:"params",      expr:toArray(fparam, t.params, p), quotes:Unquoted}
 			];
 			return toObj(fields, p);
 		}
 
-		var fields:Array<{field:String, expr:Expr}> = [
-		{field:"args",   expr:toArray(farg, f.args, p)},
-		{field:"ret",    expr:toOpt(toCType, f.ret, p)},
-		{field:"expr",   expr:toOpt(toExpr, f.expr, p)},
-		{field:"params", expr:toArray(fparam, f.params, p)}
+		var fields:Array<{field:String, expr:Expr, quotes:QuoteStatus}> = [
+		{field:"args",   expr:toArray(farg, f.args, p), quotes:Unquoted},
+		{field:"ret",    expr:toOpt(toCType, f.ret, p), quotes:Unquoted},
+		{field:"expr",   expr:toOpt(toExpr, f.expr, p), quotes:Unquoted},
+		{field:"params", expr:toArray(fparam, f.params, p), quotes:Unquoted}
 		];
 
 		return toObj(fields, p);
 	}
 
 	function toAccess(a:Access, p:Position):Expr {
-		var n:String;
 		var n = switch(a){
+			case AFinal:     "AFinal";
 			case APublic :   "APublic";
 			case APrivate :  "APrivate";
 			case AStatic :   "AStatic";
@@ -1640,23 +1648,23 @@ private class Reificator{
 			return mkEnum("FieldType", n, vl, p);
 		}
 
-		var fields:Array<{field:String, expr:Expr}> = [];
-		fields.push({field:"name", expr:toString(f.name, p)});
-		if (f.doc != null) fields.push({field:"doc", expr:toString(f.doc, p)});
-		if (f.access != null) fields.push({field:"access", expr:toArray(toAccess, f.access, p)});
-		fields.push({field:"kind", expr:toFType(f.kind)});
-		fields.push({field:"pos",  expr:toPos(f.pos)});
-		if (f.meta != null) fields.push({field:"meta", expr:toMeta(f.meta, p)});
+		var fields:Array<{field:String, expr:Expr, quotes:QuoteStatus}> = [];
+		fields.push({field:"name", expr:toString(f.name, p), quotes:Unquoted});
+		if (f.doc != null) fields.push({field:"doc", expr:toString(f.doc, p), quotes:Unquoted});
+		if (f.access != null) fields.push({field:"access", expr:toArray(toAccess, f.access, p), quotes:Unquoted});
+		fields.push({field:"kind", expr:toFType(f.kind), quotes:Unquoted});
+		fields.push({field:"pos",  expr:toPos(f.pos), quotes:Unquoted});
+		if (f.meta != null) fields.push({field:"meta", expr:toMeta(f.meta, p), quotes:Unquoted});
 
 		return toObj(fields, p);
 	}
 
 	function toMeta(m:Metadata, p:Position):Expr {
 		return toArray(function(me:MetadataEntry, _:Position):Expr {
-			var fields:Array<{field:String, expr:Expr}> = [
-			{field:"name",   expr:toString(me.name, me.pos)},
-			{field:"params", expr:toExprArray(me.params, me.pos)},
-			{field:"pos",    expr:toPos(me.pos)}
+			var fields:Array<{field:String, expr:Expr, quotes:QuoteStatus}> = [
+			{field:"name",   expr:toString(me.name, me.pos), quotes:Unquoted},
+			{field:"params", expr:toExprArray(me.params, me.pos), quotes:Unquoted},
+			{field:"pos",    expr:toPos(me.pos), quotes:Unquoted}
 			];
 			return toObj(fields, me.pos);
 		}, m, p);
@@ -1671,7 +1679,7 @@ private class Reificator{
 		if (inMacro)
 			return {expr:EUntyped({expr:ECall({expr:EConst(CIdent("$mk_pos")), pos:p}, [file, pmin, pmax]), pos:p}), pos:p};
 		else
-			return toObj([{field:"file", expr:file}, {field:"min", expr:pmin}, {field:"max", expr:pmax}], p);
+			return toObj([{field:"file", expr:file, quotes:Unquoted}, {field:"min", expr:pmin, quotes:Unquoted}, {field:"max", expr:pmax, quotes:Unquoted}], p);
 	}
 
 	function toExprArray(a:Array<Expr>, p:Position):Expr {
@@ -1694,7 +1702,7 @@ private class Reificator{
 		var p = e.pos;
 		function expr(n:String, vl:Array<Expr>):Expr {
 			var e = mkEnum("ExprDef", n, vl, p);
-			return toObj([{field:"expr", expr:e}, {field:"pos", expr:toPos(p)}], p);
+			return toObj([{field:"expr", expr:e, quotes:Unquoted}, {field:"pos", expr:toPos(p), quotes:Unquoted}], p);
 		}
 		function loop(e:Expr):Expr {
 			return toExpr(e, e.pos);
@@ -1713,7 +1721,7 @@ private class Reificator{
 			case EParenthesis(e):
 				expr("EParenthesis", [loop(e)]);
 			case EObjectDecl(fl):
-				expr("EObjectDecl", [toArray(function(f:{field:String, expr:Expr}, p2:Position):Expr {return toObj([{field:"field", expr:toString(f.field, p)}, {field:"expr", expr:loop(f.expr)}], p2);}, fl, p)]);
+				expr("EObjectDecl", [toArray(function(f:{field:String, expr:Expr}, p2:Position):Expr {return toObj([{field:"field", expr:toString(f.field, p), quotes:Unquoted}, {field:"expr", expr:loop(f.expr), quotes:Unquoted}], p2);}, fl, p)]);
 			case EArrayDecl(el):
 				expr("EArrayDecl", [toExprArray(el, p)]);
 			case ECall(e, el):
@@ -1736,10 +1744,10 @@ private class Reificator{
 					var name = vv.name;
 					var type = vv.type;
 					var expr = vv.expr;
-					var fields:Array<{field:String, expr:Expr}> = [
-						{field:"name", expr:toString(name, p)},
-						{field:"type", expr:toOpt(toCType, type, p)},
-						{field:"expr", expr:toOpt(toExpr, expr, p)}
+					var fields:Array<{field:String, expr:Expr, quotes:QuoteStatus}> = [
+						{field:"name", expr:toString(name, p), quotes:Unquoted},
+						{field:"type", expr:toOpt(toCType, type, p), quotes:Unquoted},
+						{field:"expr", expr:toOpt(toExpr, expr, p), quotes:Unquoted}
 					];
 					return toObj(fields, p);
 				}, vl, p)]);
@@ -1762,7 +1770,7 @@ private class Reificator{
 					var el = swc.values;
 					var eg = swc.guard;
 					var e = swc.expr;
-					return toObj([{field:"values", expr:toExprArray(el, p)}, {field:"guard", expr:toOpt(toExpr, eg, p)}, {field:"expr", expr:toOpt(toExpr, e, p)}], p);
+					return toObj([{field:"values", expr:toExprArray(el, p), quotes:Unquoted}, {field:"guard", expr:toOpt(toExpr, eg, p), quotes:Unquoted}, {field:"expr", expr:toOpt(toExpr, e, p), quotes:Unquoted}], p);
 				}
 				expr("ESwitch", [loop(e1), toArray(scase, cases, p), toOpt(
 					function(def2:Null<Expr>, p:Position):Expr {
@@ -1775,7 +1783,7 @@ private class Reificator{
 					var n = c.name;
 					var t = c.type;
 					var e = c.expr;
-					return toObj([{field:"name", expr:toString(n, p)}, {field:"type", expr:toCType(t, p)}, {field:"expr", expr:loop(e)}], p);
+					return toObj([{field:"name", expr:toString(n, p), quotes:Unquoted}, {field:"type", expr:toCType(t, p), quotes:Unquoted}, {field:"expr", expr:loop(e), quotes:Unquoted}], p);
 				}
 				expr("ETry", [loop(e1), toArray(scatch, catches, p)]);
 			case EReturn(eo):
@@ -1857,9 +1865,9 @@ private class Reificator{
 					e;
 				default: expr("EMeta", [
 						toObj([
-							{field:"name",expr:toString(md.name, p)},
-							{field:"params",expr:toExprArray(md.params, p)},
-							{field:"pos",expr:toPos(p)}
+							{field:"name",expr:toString(md.name, p), quotes:Unquoted},
+							{field:"params",expr:toExprArray(md.params, p), quotes:Unquoted},
+							{field:"pos",expr:toPos(p), quotes:Unquoted}
 						], p),
 						loop(e1)
 					]);
@@ -1879,9 +1887,9 @@ private class Reificator{
 		}
 
 		return toObj([
-			{field:"name", expr:toString(t.name,p)},
-			{field:"params", expr:{expr:EArrayDecl(params),pos:p}},
-			{field:"constraints", expr:{expr:EArrayDecl(constraints),pos:p}}
+			{field:"name", expr:toString(t.name,p), quotes:Unquoted},
+			{field:"params", expr:{expr:EArrayDecl(params),pos:p}, quotes:Unquoted},
+			{field:"constraints", expr:{expr:EArrayDecl(constraints),pos:p}, quotes:Unquoted}
 		],p);
 	}
 
@@ -1934,14 +1942,14 @@ private class Reificator{
 			}
 
 			return toObj([
-				{field:"pack", expr:{expr:EArrayDecl([]),pos:p}},
-				{field:"name", expr:toString(d.name, p)},
-				{field:"pos", expr:(toPos(p))},
-				{field:"meta", expr:toMeta(d.meta, p)},
-				{field:"params", expr:{expr:EArrayDecl(params),pos:p}},
-				{field:"isExtern", expr:toBool(isExtern, p)},
-				{field:"kind", expr:mkEnum("TypeDefKind", "TDClass", kindParams, p)},
-				{field:"fields", expr:{expr:EArrayDecl(fields), pos:p}}
+				{field:"pack", expr:{expr:EArrayDecl([]),pos:p}, quotes:Unquoted},
+				{field:"name", expr:toString(d.name, p), quotes:Unquoted},
+				{field:"pos", expr:(toPos(p)), quotes:Unquoted},
+				{field:"meta", expr:toMeta(d.meta, p), quotes:Unquoted},
+				{field:"params", expr:{expr:EArrayDecl(params),pos:p}, quotes:Unquoted},
+				{field:"isExtern", expr:toBool(isExtern, p), quotes:Unquoted},
+				{field:"kind", expr:mkEnum("TypeDefKind", "TDClass", kindParams, p), quotes:Unquoted},
+				{field:"fields", expr:{expr:EArrayDecl(fields), pos:p}, quotes:Unquoted}
 			], td.pos);
 		default: throw "Invalid type for reification";
 		}

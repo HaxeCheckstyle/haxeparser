@@ -2,7 +2,21 @@
 -cp test
 -main Test
 -lib hxparse
+-lib hx3compat
+-dce full
+-D analyzer-optimize
+-D analyzer-user-var-fusion
 --each
 
 --next
 --interp
+
+#--next
+#-neko bin/haxeparser.n
+
+#--next
+#-js bin/haxeparser.js
+
+#--next
+#-hl bin/haxeparser.hl
+#-D interp
