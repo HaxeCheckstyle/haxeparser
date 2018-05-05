@@ -556,7 +556,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 							data: t
 						}), pos: punion(p1,p2)};
 					case [{tok:Kwd(KwdAbstract), pos:p1}, name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = parseRepeat(parseAbstractRelations), {tok:BrOpen}, fl = parseClassFields(false, p1)]:
-						var flags = c.map(function(flag) return switch(flag.e) { case EPrivate: APrivAbstract; case EExtern: AExtern; });
+						var flags = c.map(function(flag) return switch(flag.e) { case EPrivate: APrivAbstract; case EExtern: AbstractFlag.AExtern; });
 						if (st != null) {
 							flags.push(AIsType(st));
 						}
@@ -1630,8 +1630,20 @@ private class Reificator{
 			case ADynamic :  "ADynamic";
 			case AInline :   "AInline";
 			case AMacro :    "AMacro";
+			case AExtern :   "AExtern";
 		}
 		return mkEnum("Access", n, [], p);
+	}
+
+	function toDisplaykind(dk:DisplayKind, p:Position):Expr {
+		var n = switch(dk) {
+			case DKCall      : "DKCall";
+			case DKDot       : "DKDot";
+			case DKMarked    : "DKMarked";
+			case DKStructure : "DKStructure";
+			case DKToplevel  : "DKToplevel";
+		}
+		return mkEnum("DisplayKind", n, [], p);
 	}
 
 	function toCField(f:Field, p:Position):Expr {
@@ -1798,8 +1810,8 @@ private class Reificator{
 				expr("EThrow", [loop(e)]);
 			case ECast(e, ct):
 				expr("ECast", [loop(e), toOpt(toCType, ct, p)]);
-			case EDisplay(e, flag):
-				expr("EDisplay", [loop(e), toBool(flag, p)]);
+			case EDisplay(e, dk):
+				expr("EDisplay", [loop(e), toDisplaykind(dk, p)]);
 			case EDisplayNew(t):
 				expr("EDisplayNew", [toTPath(t, p)]);
 			case ETernary(e1, e2, e3):

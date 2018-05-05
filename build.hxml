@@ -6,9 +6,7 @@
 -dce full
 -D analyzer-optimize
 -D analyzer-user-var-fusion
---each
 
---next
 --interp
 
 #--next
