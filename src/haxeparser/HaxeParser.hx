@@ -1639,9 +1639,9 @@ private class Reificator{
 		var n = switch(dk) {
 			case DKCall      : "DKCall";
 			case DKDot       : "DKDot";
-			case DKMarked    : "DKMarked";
 			case DKStructure : "DKStructure";
-			case DKToplevel  : "DKToplevel";
+			case DKMarked    : "DKMarked";
+			case DKPattern   : "DKPattern";
 		}
 		return mkEnum("DisplayKind", n, [], p);
 	}
