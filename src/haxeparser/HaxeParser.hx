@@ -1554,6 +1554,7 @@ private class Reificator{
 			case TParent(t): ct("TParent", [toCType(t, p)]);
 			case TExtend(tl, fields): ct("TExtend", [toArray(toTPath, tl, p), toArray(toCField, fields, p)]);
 			case TOptional(t): ct("TOptional", [toCType(t, p)]);
+			case TIntersection(types): ct("TIntersection", [toArray(toCType, types, p)]);
 		}
 	}
 
