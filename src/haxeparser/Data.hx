@@ -47,6 +47,9 @@ enum Keyword {
 	KwdFalse;
 	KwdAbstract;
 	KwdMacro;
+	#if (haxe_ver >= 4)
+	KwdFinal;
+	#end
 }
 
 class KeywordPrinter {
@@ -96,6 +99,9 @@ class KeywordPrinter {
 			case KwdFalse: "false";
 			case KwdAbstract: "abstract";
 			case KwdMacro: "macro";
+			#if (haxe_ver >= 4)
+			case KwdFinal: "final";
+			#end
 		}
 	}
 }
