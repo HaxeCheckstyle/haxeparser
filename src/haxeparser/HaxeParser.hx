@@ -1638,11 +1638,11 @@ private class Reificator{
 
 	function toDisplaykind(dk:DisplayKind, p:Position):Expr {
 		var n = switch(dk) {
-			case DKCall      : "DKCall";
-			case DKDot       : "DKDot";
-			case DKStructure : "DKStructure";
-			case DKMarked    : "DKMarked";
-			case DKPattern   : "DKPattern";
+			case DKCall       : "DKCall";
+			case DKDot        : "DKDot";
+			case DKStructure  : "DKStructure";
+			case DKMarked     : "DKMarked";
+			case DKPattern(_) : "DKPattern";
 		}
 		return mkEnum("DisplayKind", n, [], p);
 	}
