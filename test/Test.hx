@@ -481,6 +481,10 @@ class Test extends haxe.unit.TestCase {
 		peq("class C { static function main() '{${printClassRec(c,'',s)}}';}", "class C {static function main() \"{${printClassRec(c,\\'\\',s)}}\";}");
 	}
 
+	function testMultilineStringInterpolation() {
+		peq("class C { static function main() '{${\nprintClassRec(c,'',s)\n}}';}", "class C {static function main() \"{${\nprintClassRec(c,\\'\\',s)\n}}\";}");
+	}
+
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();
