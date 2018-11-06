@@ -241,6 +241,10 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		"[^/\"'{}\n\r]+" => {
 			buf.add(lexer.current);
 			lexer.token(codeString);
+		},
+		"[\r\n\t ]+" => {
+			buf.add(lexer.current);
+			lexer.token(codeString);
 		}
 	];
 
