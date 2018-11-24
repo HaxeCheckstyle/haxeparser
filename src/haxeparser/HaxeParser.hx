@@ -1124,8 +1124,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch stream {
 			case [id = dollarIdent(), t = parseTypeOpt()]:
 				switch stream {
-					case [{tok:Binop(OpAssign)}, e = expr()]: { name: id.name, type: t, expr: e};
-					case _: { name: id.name, type:t, expr: null};
+					case [{tok:Binop(OpAssign)}, e = expr()]: { name: id.name, type: t, expr: e, isFinal: false};
+					case _: { name: id.name, type:t, expr: null, isFinal: false};
 				}
 		}
 	}
