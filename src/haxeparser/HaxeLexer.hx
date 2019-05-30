@@ -302,8 +302,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 	];
 
 	public static var sharp_token = @:rule [
-		sharp_ident => 
-			mk(lexer, Const(CIdent(lexer.current))),
+		sharp_ident => mk(lexer, Const(CIdent(lexer.current))),
 		"[\r\n\t ]+" => {
 			#if keep_whitespace
 			var space = lexer.current;
