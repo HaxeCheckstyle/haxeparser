@@ -361,6 +361,7 @@ class Test extends haxe.unit.TestCase {
 		perr("#if false class C{} #elseif true class C{}");
 		perr("#if false class C{} #elseif false class C{} #else");
 		perr("#if false class C{} #elseif true class C{} #else");
+		perr("#if target..sys 1 #else 2 #end");
 		perr("#if !target..sys 1 #else 2 #end");
 	}
 
