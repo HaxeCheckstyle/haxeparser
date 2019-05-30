@@ -103,7 +103,7 @@ class HaxeTokenSource {
 		this.mstack = [];
 		this.defines = defines;
 		this.skipstates = [Consume];
-		this.rawSource = new hxparse.LexerTokenSource(lexer,HaxeLexer.tok);
+		this.rawSource = new hxparse.LexerTokenSource(lexer,HaxeLexer.sharp_token);
 		this.condParser = new HaxeCondParser(this.rawSource);
 	}
 

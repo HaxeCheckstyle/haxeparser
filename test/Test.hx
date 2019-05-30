@@ -347,7 +347,12 @@ class Test extends haxe.unit.TestCase {
 		eeq("#if false 1 #elseif false 2 #else 3 #end", "3");
 		eeq("#if true #if false 1 #else 2 #end #else 3 #end", "2");
 		eeq("#if false 1 #else #if false 2 #else 3 #end #end ", "3");
-
+		eeq("#if target.sys 1 #else 2 #end", "2");
+		eeq("#if !target.sys 1 #else 2 #end", "1");
+		eeq("#if (target.sys) 1 #else 2 #end", "2");
+		eeq("#if target.sys 1 #elseif target.php 2 #else 3 #end", "3");
+		eeq("#if target.sys 1 #elseif !target.php 2 #else 3 #end", "2");
+		
 		perr("#if true class C{}");
 		perr("#if false class C{}");
 		perr("#if true class C{} #else class C{}");
@@ -356,6 +361,7 @@ class Test extends haxe.unit.TestCase {
 		perr("#if false class C{} #elseif true class C{}");
 		perr("#if false class C{} #elseif false class C{} #else");
 		perr("#if false class C{} #elseif true class C{} #else");
+		perr("#if !target..sys 1 #else 2 #end");
 	}
 
 	function testError() {
