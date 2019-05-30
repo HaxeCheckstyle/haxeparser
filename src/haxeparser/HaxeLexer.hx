@@ -44,6 +44,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 	static var buf = new StringBuf();
 
 	static var ident = "_*[a-z][a-zA-Z0-9_]*|_+|_+[0-9][_a-zA-Z0-9]*";
+	static var sharp_ident = "[a-z_][a-zA-Z0-9_]*(\\.[a-z_][a-zA-Z0-9_]*)*";
 	static var idtype = "_*[A-Z][a-zA-Z0-9_]*";
 
 	static var integer = "([1-9][0-9]*)|0";
@@ -298,6 +299,21 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		"[gimsu]*" => {
 			{ pmax:lexer.curPos().pmax, opt:lexer.current };
 		}
+	];
+
+	public static var sharp_token = @:rule [
+		sharp_ident => mk(lexer, Const(CIdent(lexer.current))),
+		"[\r\n\t ]+" => {
+			#if keep_whitespace
+			var space = lexer.current;
+			var token:Token = lexer.token(sharp_token);
+			token.space = space;
+			token;
+			#else
+			lexer.token(sharp_token);
+			#end
+		},
+		"[.]*" => lexer.token(tok)
 	];
 
 	static inline function unescapePos(pos:Position, index:Int, length:Int) {
