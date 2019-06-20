@@ -478,7 +478,7 @@ class Test extends haxe.unit.TestCase {
 	}
 
 	function testIssue19() {
-		eeq("(null : { a:Int, b:String, c:Bool })", "(null : { var a : Int; var b : String; var c : Bool; })");
+		eeq("(null : { a:Int, b:String, c:Bool })", "((null : { var a : Int; var b : String; var c : Bool; }))");
 	}
 
 	function testIssue30() {
@@ -518,6 +518,21 @@ class Test extends haxe.unit.TestCase {
 		peq("enum abstract C(Int) {}", "@:enum abstract C(Int) {}");
 	#end
 	}
+
+	#if (haxe_ver >= 4)
+	function testArrowFunctions() {
+		peq("class C { var f = () -> Math.random(); }", "class C {var f = function() return Math.random();}");
+		peq("class C { var f = (i) -> i * i + 2; }", "class C {var f = function(i) return i * i + 2;}");
+		peq("class C { var f = (i:Int) -> i * i + 2; }", "class C {var f = function(i:Int) return i * i + 2;}");
+		peq("class C { var f = (i:Int, j:Float) -> i * j + 2; }", "class C {var f = function(i:Int, j:Float) return i * j + 2;}");
+		peq("class C { var f:Int -> Int; }", "class C {var f : Int -> Int;}");
+		peq("class C { var f:Int -> Float -> Int; }", "class C {var f : (Int, Float) -> Int;}");
+		peq("class C { var f:(i:Int) -> Int; }", "class C {var f : (i:Int) -> Int;}");
+		peq("class C { var f:(?i:Int) -> Int; }", "class C {var f : (?i:Int) -> Int;}");
+		peq("class C { var f:(i:Int, j:Float) -> Int; }", "class C {var f : (i:Int, j:Float) -> Int;}");
+		peq("class C { var f:(?i:Int, ?j:Float) -> Int; }", "class C {var f : (?i:Int, ?j:Float) -> Int;}");
+	}
+	#end
 
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');

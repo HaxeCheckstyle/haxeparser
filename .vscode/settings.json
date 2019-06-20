@@ -1,0 +1,11 @@
+{
+    "[haxe]": {
+        "editor.formatOnSave": false
+    },
+    "haxeTestExplorer.testCommand": [
+        "${haxe}",
+        "build.hxml",
+        "-lib",
+        "test-adapter"
+    ]
+}

@@ -759,8 +759,41 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	}
 
 	function parseComplexType() {
-		var t = parseComplexTypeInner();
-		return parseComplexTypeNext(t);
+		return parseComplexTypeMaybeNamed(false);
+	}
+
+	function parseComplexTypeMaybeNamed(allowNamed:Bool) {
+		return switch stream {
+			case [{tok:POpen, pos:p1}, tl = psep(Comma, function () return parseComplexTypeMaybeNamed(true)), {tok:PClose, pos:p2}]:
+				switch tl {
+					case []:
+						parseFunctionTypeNext(tl, p1);
+					#if (haxe_ver >= 4)
+					case [TNamed(_, _)]:
+						parseFunctionTypeNext(tl, p1);
+					#end
+					case [t]:
+						var t = TParent(t);
+						parseComplexTypeNext(t);
+					case _:
+						parseFunctionTypeNext(tl, p1);
+				}
+			case _:
+				var t = parseComplexTypeInner(allowNamed);
+				parseComplexTypeNext(t);
+		}
+	}
+
+	function parseFunctionTypeNext(tl, p1) {
+		return switch stream {
+			case [{tok:Arrow, pos:pa}]:
+				switch stream {
+					case [tret = parseComplexTypeInner(false)]:
+						TFunction(tl, tret);
+				}
+			case _:
+				unexpected();
+		}
 	}
 
 	function parseStructuralExtension() {
@@ -769,7 +802,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseComplexTypeInner():ComplexType {
+	function parseComplexTypeInner(allowNamed:Bool):ComplexType {
 		return switch stream {
 			case [{tok:POpen}, t = parseComplexType(), {tok:PClose}]: TParent(t);
 			case [{tok:BrOpen, pos: p1}]:
@@ -786,8 +819,16 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case [l = parseClassFields(true, p1)]: TAnonymous(l.fields);
 					case _: unexpected();
 				}
-			case [{tok:Question}, t = parseComplexTypeInner()]:
+			case [{tok:Question}, t = parseComplexTypeInner(allowNamed)]:
 				TOptional(t);
+			case [n = dollarIdent()]:
+				switch stream {
+					case [{tok:DblDot}, t = parseComplexType()] if (allowNamed):
+						TNamed(n.name, t);
+					case _:
+						var t = parseTypePath2([], n);
+						TPath(t);
+				}
 			case [t = parseTypePath()]:
 				TPath(t);
 		}
@@ -800,35 +841,40 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	function parseTypePath1(pack:Array<String>) {
 		return switch stream {
 			case [ident = dollarIdentMacro(pack)]:
-				if (isLowerIdent(ident.name)) {
+				parseTypePath2(pack, ident);
+		}
+	}
+
+
+	function parseTypePath2(pack:Array<String>, ident) {
+		if (isLowerIdent(ident.name)) {
+			return switch stream {
+				case [{tok:Dot}]:
+					parseTypePath1(apush(pack, ident.name));
+				case [{tok:Semicolon}]:
+					throw new ParserError(Custom("Type name should start with an uppercase letter"), ident.pos);
+				case _: unexpected();
+			}
+		} else {
+			var sub = switch stream {
+				case [{tok:Dot}]:
 					switch stream {
-						case [{tok:Dot}]:
-							parseTypePath1(apush(pack, ident.name));
-						case [{tok:Semicolon}]:
-							throw new ParserError(Custom("Type name should start with an uppercase letter"), ident.pos);
+						case [{tok:Const(CIdent(name))} && !isLowerIdent(name)]: name;
 						case _: unexpected();
 					}
-				} else {
-					var sub = switch stream {
-						case [{tok:Dot}]:
-							switch stream {
-								case [{tok:Const(CIdent(name))} && !isLowerIdent(name)]: name;
-								case _: unexpected();
-							}
-						case _:
-							null;
-					}
-					var params = switch stream {
-						case [{tok:Binop(OpLt)}, l = psep(Comma, parseTypePathOrConst), {tok:Binop(OpGt)}]: l;
-						case _: [];
-					}
-					{
-						pack: pack,
-						name: ident.name,
-						params: params,
-						sub: sub
-					}
-				}
+				case _:
+					null;
+			}
+			var params = switch stream {
+				case [{tok:Binop(OpLt)}, l = psep(Comma, parseTypePathOrConst), {tok:Binop(OpGt)}]: l;
+				case _: [];
+			}
+			return {
+				pack: pack,
+				name: ident.name,
+				params: params,
+				sub: sub
+			}
 		}
 	}
 
@@ -855,7 +901,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Arrow}, t2 = parseComplexType()]:
 				switch(t2) {
 					case TFunction(args,r):
-						TFunction(apush(args,t),r);
+						TFunction(aunshift(args,t),r);
 					case _:
 						TFunction([t],t2);
 				}
@@ -1228,6 +1274,45 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
+	function arrowExpr() {
+		return switch stream {
+			case [{tok:Arrow}, e = expr()]: 
+				e;
+		}
+	}
+
+	function arrowFunction(p1, al, er) {
+		return {expr: EFunction(null, {params:[], ret:null, args:al, expr:{expr:EReturn(er), pos:er.pos}}), pos:punion(p1, er.pos)};
+	}
+
+	function arrowIdentChecktype (e) {
+		return switch (e.expr) {
+			case EConst(CIdent(n)):
+				{name:n, type:null};
+			case ECheckType({expr:EConst(CIdent(n))}, t):
+				{name:n, type:t};
+			case _:
+				unexpected();
+		}
+	}
+
+	function arrowFirstParam(e:Expr) {
+		return switch (e.expr) {
+			case EConst(CIdent(n)):
+				{name:n, opt:false, meta:[], type:null, value:null};
+			case EBinop(op, e1, e2): 
+				null;
+			case EParenthesis({expr:EBinop(OpAssign, e1, e2)}):
+				var np = arrowIdentChecktype(e1);
+				{name:np.name, opt:true, meta:[], type:np.type, value:e2};
+			case EParenthesis(e):
+				var np = arrowIdentChecktype(e);
+				{name:np.name, opt:false, meta:[], type:np.type, value:null};
+			case _: 
+				unexpected();
+		}
+	}
+
 	public function expr():Expr {
 		return switch stream {
 			case [meta = parseMetaEntry()]:
@@ -1271,10 +1356,48 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case [al = psep(Comma, expr), {tok:PClose, pos:p2}]: exprNext({expr:ENew(t,al), pos:punion(p1, p2)});
 					case _: unexpected();
 				}
-			case [{tok:POpen, pos: p1}, e = expr()]:
+			case [{tok:POpen, pos: p1}]:
 				switch stream {
-					case [{tok:PClose, pos:p2}]: exprNext({expr:EParenthesis(e), pos:punion(p1, p2)});
-					case [t = parseTypeHint(), {tok:PClose, pos:p2}]: exprNext({expr:ECheckType(e, t), pos:punion(p1, p2)});
+					case [{tok:PClose, pos:p2}, er = arrowExpr()]: 
+						arrowFunction(p1, [], er);
+					case [{tok:Question}, al = psep(Comma, parseFunParam), {tok:PClose}, er = arrowExpr()]:
+						if (al.length > 0) {
+							al[1].opt = true;
+						}
+						arrowFunction (p1, al, er);
+					case [e = expr()]:
+						switch stream {
+							case [{tok:PClose, pos:p2}]:
+								exprNext({expr: EParenthesis(e), pos:punion(p1, p2)});
+							case [{tok:Comma}, al = psep(Comma, parseFunParam), {tok:PClose}, er = arrowExpr()]:
+								arrowFunction (p1, aunshift(al, arrowFirstParam(e)), er);
+							case [t = parseTypeHint()]: {
+								switch stream {
+									case [{tok:PClose, pos:p2}]:
+										exprNext({expr: EParenthesis({expr:ECheckType(e, t), pos:punion(p1, p2)}), pos:punion(p1, p2)});
+									case [{tok:Comma, pos:p2}, al = psep(Comma, parseFunParam), {tok:PClose}, er = arrowExpr()]:
+										var np = arrowIdentChecktype(e);
+										arrowFunction (p1, aunshift(al, {name:np.name, opt:false, meta:[], type:t, value:null}), er);
+									case [{tok:Binop(OpAssign), pos:p2}, ea1 = expr()]:
+										var withArgs = function(al, er) {
+											return switch (e.expr) {
+												case EConst(CIdent(n)):
+													arrowFunction (p1, aunshift(al, {name:n, opt:true, meta:[], type:t, value:ea1}), er);
+												case _:
+													unexpected();
+											}
+										}
+										switch stream {
+											case [{tok:PClose}, er = arrowExpr()]:
+												withArgs([], er);
+											case [{tok:Comma}, al = psep(Comma, parseFunParam), {tok:PClose}, er = arrowExpr()]:
+												withArgs(al, er);
+											case _:
+												unexpected();
+										}
+								}
+							}
+						}
 					case _: unexpected();
 				}
 			case [{tok:BkOpen, pos:p1}, l = parseArrayDecl(), {tok:BkClose, pos:p2}]: exprNext({expr: EArrayDecl(l), pos:punion(p1,p2)});
@@ -1369,6 +1492,9 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				}
 			case [{tok:BkOpen}, e2 = expr(), {tok:BkClose, pos:p2}]:
 				exprNext({expr:EArray(e1,e2), pos:punion(e1.pos,p2)});
+			case [{tok:Arrow}]:
+				var er = expr();
+				arrowFunction(e1.pos, [arrowFirstParam(e1)], er);
 			case [{tok:Binop(OpGt)}]:
 				switch stream {
 					case [{tok:Binop(OpGt)}]:
