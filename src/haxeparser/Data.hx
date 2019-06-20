@@ -222,6 +222,9 @@ enum ClassFlag {
 	HInterface;
 	HExtern;
 	HPrivate;
+	#if (haxe_ver >= 4)
+	HFinal;
+	#end
 	HExtends(t:TypePath);
 	HImplements(t:TypePath);
 }

@@ -33,19 +33,27 @@ class DefinitionConverter {
 	static function convertClass(c:Definition<ClassFlag, Array<Field>>) {
 		var def = getGeneralDefinition(c);
 		var isInterface = false;
+		var isFinal = false;
 		var superClass = null;
 		var implementsList = [];
 		for (flag in c.flags) {
 			switch(flag) {
 				case HInterface: isInterface = true;
 				case HExtern: def.isExtern = true;
+				#if (haxe_ver >= 4)
+				case HFinal: isFinal = true;
+				#end
 				case HExtends(t): superClass = t;
 				case HImplements(t): implementsList.push(t);
 				case HPrivate: // TODO: ignored?
 			}
 		}
 		def.fields = c.data;
+		#if (haxe_ver >= 4)
+		def.kind = TDClass(superClass, implementsList, isInterface, isFinal);
+		#else 
 		def.kind = TDClass(superClass, implementsList, isInterface);
+		#end
 		return def;
 	}
 
