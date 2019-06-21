@@ -1,7 +1,7 @@
 language: haxe
 
 haxe:
-  - 3.4.2
+  - 3.4.7
   - development
 
 sudo: false
@@ -13,5 +13,12 @@ addons:
     packages:
       - mono-devel
 
+install:
+  - haxelib git hxparse https://github.com/Simn/hxparse --never
+
 hxml:
   - build.hxml
+
+matrix:
+  allow_failures:
+    - haxe: 3.4.7
