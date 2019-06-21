@@ -15,6 +15,7 @@ addons:
 
 install:
   - haxelib git hxparse https://github.com/Simn/hxparse --never
+  - haxelib install hx3compat
 
 hxml:
   - build.hxml
