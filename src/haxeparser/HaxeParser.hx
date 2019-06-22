@@ -723,7 +723,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseMetaEntry() {
 		return switch stream {
-			case [{tok:At}, name = metaName(), params = parseMetaParams(name.pos)]: {name: name.name, params: params, pos: name.pos};
+			case [{tok:At, pos:p1}, name = parseMetaName(p1), params = parseMetaParams(name.pos)]: {name: name.name, params: params, pos: name.pos};
 		}
 	}
 
@@ -734,15 +734,50 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function metaName() {
+	function parseMetaName2(p1, acc:Array<{name:String, pos:Position}>) {
+		var part = switch stream {
+			case [{tok:Const(CIdent(i)), pos:p}] if (p.miun = p1.max): 
+				{name:i, pos:punion(p, p1)};
+			case [{tok:Kwd(k), pos:p}] if (p.miun = p1.max): 
+				{name:KeywordPrinter.toString(k), pos:punion(p, p1)};
+		}
+		acc.unshift(part);
 		return switch stream {
-			case [{tok:Const(CIdent(i)), pos:p}]: {name: i, pos: p};
-			case [{tok:Kwd(k), pos:p}]: {name: KeywordPrinter.toString(k), pos:p};
-			case [{tok:DblDot}]:
+			case [{tok:Dot, pos:p1}, part = parseMetaName2(p1, acc)]: part;
+			case _: acc;
+		}
+	}
+
+	function parseMetaName(p1) {
+		return switch stream {
+			case [{tok:DblDot, pos:p}] if (p.min = p1.max):
 				switch stream {
-					case [{tok:Const(CIdent(i)), pos:p}]: {name: ':$i', pos: p};
-					case [{tok:Kwd(k), pos:p}]: {name: ":" + KeywordPrinter.toString(k), pos:p};
+					case [names = parseMetaName2(p, [])]:
+						metaNameConcat(names, false);
+					case _:
+						unexpected();
 				}
+			case [names = parseMetaName2(p1, [])]:
+				metaNameConcat(names, true);
+		}
+	}
+
+	function metaNameConcat(names:Array<{name:String, pos:Position}>, custom:Bool):{name:String, pos:Position} {
+		if (names.length <= 0) {
+			unexpected();
+		}
+		var pos = names[0].pos;
+		var nameParts:Array<String> = [];
+		for (n in names){
+			nameParts.push(n.name);
+			pos = punion(pos, n.pos);
+		}
+		nameParts.reverse();
+		if (custom) {
+			return {name:nameParts.join("."), pos:pos};
+		}
+		else {
+			return {name:":" + nameParts.join("."), pos:pos};
 		}
 	}
 
@@ -1364,7 +1399,10 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case _: e;
 				}
 			case [{tok:Kwd(KwdMacro), pos:p}]:
-				parseMacroExpr(p);
+				switch stream {
+					case [{tok:Dot, pos:pd}, e = parseField({expr:EConst(CIdent("macro")), pos:p}, pd)]: e;
+					case [e = parseMacroExpr(p)]: e;
+				}
 			case [{tok:Kwd(KwdVar), pos: p1}, v = parseVarDecl(false)]: { expr: EVars([v]), pos: p1};
 			case [{tok:Kwd(KwdFinal), pos: p1}, v = parseVarDecl(true)]: { expr: EVars([v]), pos: p1};
 			case [{tok:Const(c), pos:p}]: exprNext({expr:EConst(c), pos:p});
@@ -1499,25 +1537,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function exprNext(e1:Expr):Expr {
 		return switch stream {
-			case [{tok:Dot, pos:p}]:
-				switch stream {
-					case [{tok:Dollar(v), pos:p2}]:
-						exprNext({expr:EField(e1, "$" + v), pos:punion(e1.pos, p2)});
-					case [{tok:Const(CIdent(f)), pos:p2} && p.max == p2.min]:
-						exprNext({expr:EField(e1,f), pos:punion(e1.pos,p2)});
-					case [{tok:Kwd(KwdMacro), pos:p2} && p.max == p2.min]:
-						exprNext({expr:EField(e1,"macro"), pos:punion(e1.pos,p2)});
-					case [{tok:Kwd(KwdExtern), pos:p2} && p.max == p2.min]:
-						exprNext({expr:EField(e1,"extern"), pos:punion(e1.pos,p2)});
-					case [{tok:Kwd(KwdNew), pos:p2} && p.max == p2.min]:
-						exprNext({expr:EField(e1,"new"), pos:punion(e1.pos,p2)});
-					case _:
-						switch(e1) {
-							case {expr: EConst(CInt(v)), pos:p2} if (p2.max == p.min):
-								exprNext({expr:EConst(CFloat(v + ".")), pos:punion(p,p2)});
-							case _: unexpected();
-						}
-				}
+			case [{tok:Dot, pos:p}, e = parseField(e1, p)]: e;
 			case [{tok:POpen, pos:_}]:
 				switch stream {
 					case [params = parseCallParams(), {tok:PClose, pos:p2}]:
@@ -1562,6 +1582,29 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case _: throw false;
 				}
 			case _: e1;
+		}
+	}
+
+	function parseField(e1, p) {
+		return switch stream {
+			case [{tok:Kwd(KwdMacro), pos:p2} && p.max == p2.min]:
+				exprNext({expr:EField(e1,"macro"), pos:punion(e1.pos,p2)});
+			case [{tok:Kwd(KwdExtern), pos:p2} && p.max == p2.min]:
+				exprNext({expr:EField(e1,"extern"), pos:punion(e1.pos,p2)});
+			case [{tok:Kwd(KwdNew), pos:p2} && p.max == p2.min]:
+				exprNext({expr:EField(e1,"new"), pos:punion(e1.pos,p2)});
+			case [{tok:Kwd(k), pos:p2} && p.max == p2.min]:
+				exprNext({expr:EField(e1,KeywordPrinter.toString(k)), pos:punion(e1.pos,p2)});
+			case [{tok:Const(CIdent(f)), pos:p2} && p.max == p2.min]:
+				exprNext({expr:EField(e1,f), pos:punion(e1.pos,p2)});
+			case [{tok:Dollar(v), pos:p2}]:
+				exprNext({expr:EField(e1, "$" + v), pos:punion(e1.pos, p2)});
+			case _:
+				switch(e1) {
+					case {expr: EConst(CInt(v)), pos:p2} if (p2.max == p.min):
+						exprNext({expr:EConst(CFloat(v + ".")), pos:punion(p,p2)});
+					case _: unexpected();
+				}
 		}
 	}
 
