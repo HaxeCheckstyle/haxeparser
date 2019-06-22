@@ -401,6 +401,25 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
+	static var nullPos:Position = {min: 0, max:0, file:"<null pos>"};
+
+	static function makeIs(e:Expr, t:TypePath, p:Position, p_is:Position) {
+		var e_is = {expr: EField({expr:EConst(CIdent("Std")), pos:nullPos}, "is"), pos:p_is};
+		var e2 = exprOfTypePath(t.pack, t.name, p);
+		return {expr:ECall(e_is, [e, e2]), pos:p};
+	}
+
+	static function exprOfTypePath(pack:Array<String>, name:String, p:Position) {
+		if (pack.length <= 0) {
+			return {expr:EConst(CIdent(name)), pos:p};
+		}
+		var e = {expr:EConst(CIdent(pack.pop())), pos:p};
+		for (pa in pack) {
+			e = {expr:EField(e, pa), pos:p};
+		}
+		return {expr:EField(e, name), pos:p};
+	}
+
 	static function apush<T>(a:Array<T>, t:T) {
 		a.push(t);
 		return a;
@@ -1369,6 +1388,9 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 								var pu = punion(p1, p2);
 								var ep = {expr: EParenthesis({expr: ECheckType(e, t), pos: pu}), pos: pu};
 								exprNext({expr: ECast(ep, null), pos: punion(p1, pu)});
+							case [{tok:Const(CIdent("is")), pos:p_is}, t = parseTypePath(), {tok:PClose, pos:p2}]:
+								var e_is = makeIs(e, t, punion(p1, p2), p_is);
+								exprNext({expr:ECast(e_is, null), pos:punion(p1, e_is.pos)});
 							case [{tok:PClose, pos:p2}]:
 								var ep = exprNext({expr: EParenthesis(e), pos: punion(pp, p2)});
 								exprNext({expr:ECast(ep,null),pos:punion(p1,ep.pos)});
@@ -1423,8 +1445,10 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 										}
 								}
 							}
+							case [{tok:Const(CIdent("is")), pos:p_is}, t = parseTypePath(), {tok:PClose, pos:p2}]:
+								exprNext(makeIs(e, t, punion(p1, p2), p_is));
+							case _: unexpected();
 						}
-					case _: unexpected();
 				}
 			case [{tok:BkOpen, pos:p1}, l = parseArrayDecl(), {tok:BkClose, pos:p2}]: exprNext({expr: EArrayDecl(l), pos:punion(p1,p2)});
 			case [{tok:Kwd(KwdFunction), pos:p1}, e = parseFunction(p1, false)]: e;

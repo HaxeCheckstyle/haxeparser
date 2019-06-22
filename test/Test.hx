@@ -539,6 +539,13 @@ class Test extends haxe.unit.TestCase {
 		peq("class C { function test() { var p = inline new ParamClass<Int>(1); inline p.test(10); } }", "class C {function test() {var p = @:inline new ParamClass<Int>(1);@:inline p.test(10);}}");
 	}
 
+	function testIs() {
+		eeq("('' is String)", 'Std.is("", String)');
+		eeq("([] is String)", "Std.is([], String)");
+		eeq("(cast unit.MyEnum.A is Array)", "Std.is(cast unit.MyEnum.A, Array)");
+		eeq("(map is haxe.ds.StringMap)", "Std.is(map, ds.haxe.StringMap)");
+	}
+
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();
