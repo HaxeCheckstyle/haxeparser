@@ -546,6 +546,13 @@ class Test extends haxe.unit.TestCase {
 		eeq("(map is haxe.ds.StringMap)", "Std.is(map, ds.haxe.StringMap)");
 	}
 
+	function testTypeIntersection() {
+		eeq("function memberMultiple < A:Base & I1 > (a:A):A { return a; }", "function memberMultiple<A:(Base & I1)>(a:A):A {return a;}");
+		eeq("function memberAnon < A:{ x : Int } & { y : Float }> (v:A) { return v.x + v.y; }", "function memberAnon<A:({ var x : Int; } & { var y : Float; })>(v:A) {return v.x + v.y;}");
+		peq("private typedef C2 = {} & A;", "typedef C2 = { } & A;");
+		peq("private typedef D2 = A & B;", "typedef D2 = A & B;");
+	}
+
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();

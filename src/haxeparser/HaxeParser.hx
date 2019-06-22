@@ -924,6 +924,13 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case _:
 						TFunction([t],t2);
 				}
+			case [{tok:Binop(OpAnd), pos:pa}, t2 = parseComplexType()]:
+				switch(t2) {
+					case TIntersection(tl):
+						TIntersection(aunshift(tl, t));
+					case _:
+						TIntersection([t, t2]);
+				}
 			case _: t;
 		}
 	}
