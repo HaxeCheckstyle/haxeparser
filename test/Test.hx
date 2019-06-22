@@ -421,13 +421,8 @@ class Test extends haxe.unit.TestCase {
 		eeq("macro f();",         '({ expr : ECall({ expr : EConst(CIdent("f")), pos : { file : "main:0", min : 6, max : 7 } }, []), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
 		eeq("macro :Array;",      '(TPath({ pack : [], name : "Array", params : [] }) : haxe.macro.Expr.ComplexType)',fakePosInfos);
 
-		#if (haxe_ver >= 4)
 		eeq("macro class A{};",   '({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 15 }, meta : [], params : [], isExtern : false, kind : TDClass(null, [], false, false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
 		eeq("macro class A<T>{};",'({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 18 }, meta : [], params : [{ name : "T", params : [], constraints : [] }], isExtern : false, kind : TDClass(null, [], false, false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
-		#else
-		eeq("macro class A{};",   '({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 15 }, meta : [], params : [], isExtern : false, kind : TDClass(null, [], false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
-		eeq("macro class A<T>{};",'({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 18 }, meta : [], params : [{ name : "T", params : [], constraints : [] }], isExtern : false, kind : TDClass(null, [], false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
-		#end
 	}
 
 	function testIssue6() {
@@ -498,14 +493,12 @@ class Test extends haxe.unit.TestCase {
 		peq("class C { static function main() '{${\nprintClassRec(c,'',s)\n}}';}", "class C {static function main() \"{${\\nprintClassRec(c,\\'\\',s)\\n}}\";\n}");
 	}
 
-	#if (haxe_ver >= 4)
 	function testFinalFields() {
 		peq("class C { final a:Int = 99; }", "class C {final var a : Int = 99;}");
         peq("class C { final static function main():Void {} }", "class C {static final function main():Void { }}");
         peq("class C { final function new() {} }", "class C {final function new() { }}");
 		peq("final class C {}", "final class C {}");
 	}
-	#end
 
 	function testEnumAbstract() {
 		peq("abstract C(Int) {}", "abstract C(Int) {}");
@@ -514,12 +507,9 @@ class Test extends haxe.unit.TestCase {
 		peq("enum C {}", "enum C {}");
 
 		peq("@:enum abstract C(Int) {}", "@:enum abstract C(Int) {}");
-	#if (haxe_ver >= 4)
 		peq("enum abstract C(Int) {}", "@:enum abstract C(Int) {}");
-	#end
 	}
 
-	#if (haxe_ver >= 4)
 	function testArrowFunctions() {
 		peq("class C { var f = () -> Math.random(); }", "class C {var f = function() return Math.random();}");
 		peq("class C { var f = (i) -> i * i + 2; }", "class C {var f = function(i) return i * i + 2;}");
@@ -532,7 +522,6 @@ class Test extends haxe.unit.TestCase {
 		peq("class C { var f:(i:Int, j:Float) -> Int; }", "class C {var f : (i:Int, j:Float) -> Int;}");
 		peq("class C { var f:(?i:Int, ?j:Float) -> Int; }", "class C {var f : (?i:Int, ?j:Float) -> Int;}");
 	}
-	#end
 
 	function testInline() {
 		peq("class C { function test() { inline test(); } }", "class C {function test() {@:inline test();}}");

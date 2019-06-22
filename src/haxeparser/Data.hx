@@ -30,9 +30,6 @@ enum Keyword {
 	KwdThrow;
 	KwdExtern;
 	KwdEnum;
-	#if (haxe_ver < 4)
-	KwdIn;
-	#end
 	KwdInterface;
 	KwdUntyped;
 	KwdCast;
@@ -47,9 +44,7 @@ enum Keyword {
 	KwdFalse;
 	KwdAbstract;
 	KwdMacro;
-	#if (haxe_ver >= 4)
 	KwdFinal;
-	#end
 }
 
 class KeywordPrinter {
@@ -82,15 +77,12 @@ class KeywordPrinter {
 			case KwdThrow: "throw";
 			case KwdExtern: "extern";
 			case KwdEnum: "enum";
-			#if (haxe_ver < 4)
-			case KwdIn: "in";
-			#end
 			case KwdInterface: "interface";
 			case KwdUntyped: "untyped";
 			case KwdCast: "cast";
 			case KwdOverride: "override";
 			case KwdTypedef: "typedef";
- 			case KwdDynamic: "dynamic";
+			case KwdDynamic: "dynamic";
 			case KwdPackage: "package";
 			case KwdInline: "inline";
 			case KwdUsing: "using";
@@ -99,9 +91,7 @@ class KeywordPrinter {
 			case KwdFalse: "false";
 			case KwdAbstract: "abstract";
 			case KwdMacro: "macro";
-			#if (haxe_ver >= 4)
 			case KwdFinal: "final";
-			#end
 		}
 	}
 }
@@ -222,9 +212,7 @@ enum ClassFlag {
 	HInterface;
 	HExtern;
 	HPrivate;
-	#if (haxe_ver >= 4)
 	HFinal;
-	#end
 	HExtends(t:TypePath);
 	HImplements(t:TypePath);
 }

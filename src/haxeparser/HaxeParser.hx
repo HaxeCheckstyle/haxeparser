@@ -327,9 +327,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		var left = true;
 		var right = false;
 		return switch(op) {
-			#if (haxe_ver >= 4)
 			case OpIn : {p: 0, left: right};
-			#end
 			case OpMod : {p: 1, left: left};
 			case OpMult | OpDiv : {p: 2, left: left};
 			case OpAdd | OpSub : {p: 3, left: left};
@@ -662,7 +660,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						decl: EImport(acc, INormal),
 						pos: p2
 					}
-				case [{tok:#if (haxe_ver < 4) Kwd(KwdIn) #else Binop(OpIn) #end | Const(CIdent('as'))}, {tok:Const(CIdent(name))}, {tok:Semicolon, pos:p2}]:
+				case [{tok:Binop(OpIn) | Const(CIdent('as'))}, {tok:Const(CIdent(name))}, {tok:Semicolon, pos:p2}]:
 					return {
 						decl: EImport(acc, IAsName(name)),
 						pos: p2
@@ -711,9 +709,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch stream {
 			case [{tok:Kwd(KwdPrivate)}, l = parseCommonFlags()]: apush(l, {c:HPrivate, e:EPrivate, a:APrivAbstract});
 			case [{tok:Kwd(KwdExtern)}, l = parseCommonFlags()]: apush(l, {c:HExtern, e:EExtern, a:AExtern});
-			#if (haxe_ver >= 4)
 			case [{tok:Kwd(KwdFinal)}, l = parseCommonFlags()]: apush(l, {c:HFinal, e:null, a:null});
-			#end
 			case _: [];
 		}
 	}
@@ -787,10 +783,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				switch tl {
 					case []:
 						parseFunctionTypeNext(tl, p1);
-					#if (haxe_ver >= 4)
 					case [TNamed(_, _)]:
 						parseFunctionTypeNext(tl, p1);
-					#end
 					case [t]:
 						var t = TParent(t);
 						parseComplexTypeNext(t);
@@ -1054,7 +1048,6 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 									kind: FVar(t,e.expr)
 								}
 						}
-					#if (haxe_ver >= 4)
 					case [{tok:Kwd(KwdFinal), pos:p1}]:
 						switch stream {
 							case [name = questionableDollarIdent(), t = parseTypeOpt(), e = parseVarFieldAssignment()]:
@@ -1068,7 +1061,6 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 								al = al2;
 								f;
 						}
-					#end
 					case [f = parseFunctionField(doc, meta, al)]:
 						f;
 					case _:
@@ -1200,9 +1192,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	function parseBlockElt() {
 		return switch stream {
 			case [{tok:Kwd(KwdVar), pos:p1}, vl = psep(Comma, function() return parseVarDecl(false)), p2 = semicolon()]: { expr: EVars(vl), pos:punion(p1,p2)};
-			#if (haxe_ver >= 4)
 			case [{tok:Kwd(KwdFinal), pos:p1}, vl = psep(Comma, () -> parseVarDecl(true)), p2 = semicolon()]: { expr: EVars(vl), pos:punion(p1,p2)};
-			#end
 			case [{tok:Kwd(KwdInline), pos:p1}]:
 				switch stream {
 					case [{tok:Kwd(KwdFunction)}, e = parseFunction(p1, true), _ = semicolon()]:
@@ -1297,10 +1287,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				{ expr: ECheckType(t, TPath( {pack:["haxe","macro"], name:"Expr", sub:"ComplexType", params: []})), pos: p};
 			case [{tok:Kwd(KwdVar), pos:p1}, vl = psep(Comma, function () return parseVarDecl(false))]:
 				reifyExpr({expr:EVars(vl), pos:p1});
-			#if (haxe_ver >= 4)
 			case [{tok:Kwd(KwdFinal), pos:p1}, vl = psep(Comma, function () return parseVarDecl(true))]:
 				reifyExpr({expr:EVars(vl), pos:p1});
-			#end
 			case [d = parseClass([],[],false)]:
 				var toType = reify(inMacro).toTypeDef;
 				{ expr: ECheckType(toType(d), TPath( {pack:["haxe","macro"], name:"Expr", sub:"TypeDefinition", params: []})), pos: p};
@@ -1378,9 +1366,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Kwd(KwdMacro), pos:p}]:
 				parseMacroExpr(p);
 			case [{tok:Kwd(KwdVar), pos: p1}, v = parseVarDecl(false)]: { expr: EVars([v]), pos: p1};
-			#if (haxe_ver >= 4)
 			case [{tok:Kwd(KwdFinal), pos: p1}, v = parseVarDecl(true)]: { expr: EVars([v]), pos: p1};
-			#end
 			case [{tok:Const(c), pos:p}]: exprNext({expr:EConst(c), pos:p});
 			case [{tok:Kwd(KwdThis), pos:p}]: exprNext({expr: EConst(CIdent("this")), pos:p});
 			case [{tok:Kwd(KwdTrue), pos:p}]: exprNext({expr: EConst(CIdent("true")), pos:p});
@@ -1567,10 +1553,6 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				makeBinop(op,e1,e2);
 			case [{tok:Question}, e2 = expr(), {tok:DblDot}, e3 = expr()]:
 				{ expr: ETernary(e1,e2,e3), pos: punion(e1.pos, e3.pos)};
-			#if (haxe_ver < 4)
-			case [{tok:Kwd(KwdIn)}, e2 = expr()]:
-				{expr:EIn(e1,e2), pos:punion(e1.pos, e2.pos)};
-			#end
 			case [{tok:Unop(op), pos:p} && isPostfix(e1,op)]:
 				exprNext({expr:EUnop(op,true,e1), pos:punion(e1.pos, p)});
 			case [{tok:BrOpen, pos:p1} && isDollarIdent(e1), eparam = expr(), {tok:BrClose,pos:p2}]:
@@ -1593,9 +1575,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	function parseExprOrVar() {
 		return switch stream {
 			case [{tok:Kwd(KwdVar),pos:p1}, name = dollarIdent()]: { expr: EVars([{name: name.name, type:null, expr:null}]), pos: p1 };
-			#if (haxe_ver >= 4)
 			case [{tok:Kwd(KwdFinal),pos:p1}, name = dollarIdent()]: { expr: EVars([{name: name.name, type:null, expr:null}]), pos: p1 };
-			#end
 			case [e = expr()]: e;
 		}
 	}
@@ -1734,9 +1714,7 @@ private class Reificator{
 			case OpAssignOp(o): return mkEnum("Binop", "OpAssignOp", [toBinop(o, p)], p);
 			case OpInterval: return op("OpInterval");
 			case OpArrow: return op("OpArrow");
-			#if (haxe_ver >= 4)
 			case OpIn: return op("OpIn");
-			#end
 		}
 	}
 
@@ -2008,10 +1986,6 @@ private class Reificator{
 				expr("EBlock", [toExprArray(el, p)]);
 			case EFor(e1, e2):
 				expr("EFor", [loop(e1), loop(e2)]);
-			#if (haxe_ver < 4)
-			case EIn(e1, e2):
-				expr("EIn", [loop(e1), loop(e2)]);
-			#end
 			case EIf(e1, e2, eelse):
 				expr("EIf", [loop(e1), loop(e2), toOpt(toExpr, eelse, p)]);
 			case EWhile(e1, e2, normalWhile):

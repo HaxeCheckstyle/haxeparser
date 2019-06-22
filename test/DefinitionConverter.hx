@@ -40,20 +40,14 @@ class DefinitionConverter {
 			switch(flag) {
 				case HInterface: isInterface = true;
 				case HExtern: def.isExtern = true;
-				#if (haxe_ver >= 4)
 				case HFinal: isFinal = true;
-				#end
 				case HExtends(t): superClass = t;
 				case HImplements(t): implementsList.push(t);
 				case HPrivate: // TODO: ignored?
 			}
 		}
 		def.fields = c.data;
-		#if (haxe_ver >= 4)
 		def.kind = TDClass(superClass, implementsList, isInterface, isFinal);
-		#else 
-		def.kind = TDClass(superClass, implementsList, isInterface);
-		#end
 		return def;
 	}
 
