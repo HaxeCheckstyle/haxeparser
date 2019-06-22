@@ -1177,6 +1177,15 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			#if (haxe_ver >= 4)
 			case [{tok:Kwd(KwdFinal), pos:p1}, vl = psep(Comma, () -> parseVarDecl(true)), p2 = semicolon()]: { expr: EVars(vl), pos:punion(p1,p2)};
 			#end
+			case [{tok:Kwd(KwdInline), pos:p1}]:
+				switch stream {
+					case [{tok:Kwd(KwdFunction)}, e = parseFunction(p1, true), _ = semicolon()]:
+						e;
+					case [e = secureExpr(), _ = semicolon()]:
+						makeMeta(":inline", [], e, p1);
+					case _:
+						unexpected();
+				}
 			case [e = expr(), _ = semicolon()]: e;
 		}
 	}
@@ -1271,6 +1280,23 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				{ expr: ECheckType(toType(d), TPath( {pack:["haxe","macro"], name:"Expr", sub:"TypeDefinition", params: []})), pos: p};
 			case [e = secureExpr()]:
 				reifyExpr(e);
+		}
+	}
+
+	function parseFunction(p1, inl) {
+		return switch stream {
+			case [name = parseOptional(dollarIdent), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma, parseFunParam), {tok:PClose}, t = parseOptional(parseTypeHint)]:
+				var make = function(eBody) {
+					var f = {
+						params:pl, 
+						ret:t, 
+						args:al, 
+						expr:eBody
+					};
+					var e = {expr:EFunction((name == null) ? null : name.name, f), pos:punion(p1, eBody.pos)};
+					return (inl) ? makeMeta(":inline", [], e, p1) : e;
+				}
+				make(secureExpr());
 		}
 	}
 
@@ -1401,17 +1427,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case _: unexpected();
 				}
 			case [{tok:BkOpen, pos:p1}, l = parseArrayDecl(), {tok:BkClose, pos:p2}]: exprNext({expr: EArrayDecl(l), pos:punion(p1,p2)});
-			case [inl = inlineFunction(), name = parseOptional(dollarIdent), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma,parseFunParam), {tok:PClose}, t = parseTypeOpt()]:
-				function make(e) {
-					var f = {
-						params: pl,
-						ret: t,
-						args: al,
-						expr: e
-					};
-					return { expr: EFunction(name == null ? null : inl.isInline ? "inline_" + name.name : name.name, f), pos: punion(inl.pos, e.pos)};
-				}
-				exprNext(make(secureExpr()));
+			case [{tok:Kwd(KwdFunction), pos:p1}, e = parseFunction(p1, false)]: e;
 			case [{tok:Unop(op), pos:p1}, e = expr()]: makeUnop(op,e,p1);
 			case [{tok:Binop(OpSub), pos:p1}, e = expr()]:
 				function neg(s:String) {
@@ -1456,6 +1472,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:IntInterval(i), pos:p1}, e2 = expr()]: makeBinop(OpInterval,{expr:EConst(CInt(i)), pos:p1}, e2);
 			case [{tok:Kwd(KwdUntyped), pos:p1}, e = expr()]: { expr: EUntyped(e), pos:punion(p1,e.pos)};
 			case [{tok:Dollar(v), pos:p}]: exprNext({expr:EConst(CIdent("$" + v)), pos:p});
+			case [{tok:Kwd(KwdInline), pos:p}, e = secureExpr()]: makeMeta(":inline", [], e, p);
 		}
 	}
 

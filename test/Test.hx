@@ -534,6 +534,11 @@ class Test extends haxe.unit.TestCase {
 	}
 	#end
 
+	function testInline() {
+		peq("class C { function test() { inline test(); } }", "class C {function test() {@:inline test();}}");
+		peq("class C { function test() { var p = inline new ParamClass<Int>(1); inline p.test(10); } }", "class C {function test() {var p = @:inline new ParamClass<Int>(1);@:inline p.test(10);}}");
+	}
+
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();
