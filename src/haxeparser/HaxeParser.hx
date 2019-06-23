@@ -327,9 +327,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		var left = true;
 		var right = false;
 		return switch(op) {
-			#if (haxe_ver >= 4)
 			case OpIn : {p: 0, left: right};
-			#end
 			case OpMod : {p: 1, left: left};
 			case OpMult | OpDiv : {p: 2, left: left};
 			case OpAdd | OpSub : {p: 3, left: left};
@@ -399,6 +397,25 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case _:
 				{ expr: EMeta({name:name, params:params, pos:p1}, e), pos: punion(p1, e.pos) };
 		}
+	}
+
+	static var nullPos:Position = {min: 0, max:0, file:"<null pos>"};
+
+	static function makeIs(e:Expr, t:TypePath, p:Position, p_is:Position) {
+		var e_is = {expr: EField({expr:EConst(CIdent("Std")), pos:nullPos}, "is"), pos:p_is};
+		var e2 = exprOfTypePath(t.pack, t.name, p);
+		return {expr:ECall(e_is, [e, e2]), pos:p};
+	}
+
+	static function exprOfTypePath(pack:Array<String>, name:String, p:Position) {
+		if (pack.length <= 0) {
+			return {expr:EConst(CIdent(name)), pos:p};
+		}
+		var e = {expr:EConst(CIdent(pack.pop())), pos:p};
+		for (pa in pack) {
+			e = {expr:EField(e, pa), pos:p};
+		}
+		return {expr:EField(e, name), pos:p};
 	}
 
 	static function apush<T>(a:Array<T>, t:T) {
@@ -472,6 +489,15 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
+	function questionableDollarIdent() {
+		var po = switch stream {
+			case [{tok:Question,pos:p}]: p;
+			case _: null;
+		}
+		var ident = dollarIdent();
+		return {opt: (po != null), name: ident.name, pos: ident.pos}
+	}
+
 	function getDoc() {
 		return "";
 	}
@@ -516,24 +542,51 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
+	function parseAbstract (doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag}>) {
+		return switch stream {
+			case [{tok:Kwd(KwdAbstract), pos:p1}, name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = parseRepeat(parseAbstractRelations)]:
+				var fl = switch stream {
+					case [{tok:BrOpen}, fl = parseClassFields(false, p1)]:
+						fl;
+				}
+				var aflags = flags.map(function(i) return i.a);
+				if (st != null){
+					aflags.push(AIsType(st));
+				}
+				{ decl: EAbstract({
+					name: name,
+					doc: doc,
+					meta: meta,
+					params: tl,
+					flags: aflags.concat(sl),
+					data: fl.fields
+				}), pos: punion(p1, fl.pos)};
+		}
+	}
+
 	function parseTypeDecl() {
 		return switch stream {
 			case [{tok:Kwd(KwdImport), pos:p1}]:
 				parseImport(p1);
-			case [{tok:Kwd(KwdUsing), pos: p1}, t = parseTypePath(), p2 = semicolon()]:
+			case [{tok:Kwd(KwdUsing), pos:p1}, t = parseTypePath(), p2 = semicolon()]:
 				{decl: EUsing(t), pos: punion(p1, p2)};
-			case [meta = parseMeta(), c = parseCommonFlags()]:
+			case [doc = getDoc(), meta = parseMeta(), c = parseCommonFlags()]:
 				switch stream {
-					case [flags = parseEnumFlags(), doc = getDoc(), name = typeName(), tl = parseConstraintParams(), {tok:BrOpen}, l = parseRepeat(parseEnum), {tok:BrClose, pos: p2}]:
-						{decl: EEnum({
-							name: name,
-							doc: doc,
-							meta: meta,
-							params: tl,
-							flags: c.map(function(i) return i.e).concat(flags.flags),
-							data: l
-						}), pos: punion(flags.pos,p2)};
-					case [flags = parseClassFlags(), doc = getDoc(), name = typeName(), tl = parseConstraintParams(), hl = parseRepeat(parseClassHerit), {tok:BrOpen}, fl = parseClassFields(false,flags.pos)]:
+					case [{tok:Kwd(KwdEnum), pos:p1}]:
+						switch stream {
+							case [a = parseAbstract(doc, [{name: ":enum", params: [], pos: p1}].concat(meta), c)]:
+								{ decl: a.decl, pos: punion(p1, a.pos)};
+							case [name = typeName(), tl = parseConstraintParams(), {tok:BrOpen}, l = parseRepeat(parseEnum), {tok:BrClose, pos: p2}]:
+								{decl: EEnum({
+									name: name,
+									doc: doc,
+									meta: meta,
+									params: tl,
+									flags: c.map(function(i) return i.e),
+									data: l
+								}), pos: punion(p1,p2)};
+						}
+					case [flags = parseClassFlags(), name = typeName(), tl = parseConstraintParams(), hl = parseRepeat(parseClassHerit), {tok:BrOpen}, fl = parseClassFields(false,flags.pos)]:
 						{decl: EClass({
 							name: name,
 							doc: doc,
@@ -542,7 +595,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 							flags: c.map(function(i) return i.c).concat(flags.flags).concat(hl),
 							data: fl.fields
 						}), pos: punion(flags.pos,fl.pos)};
-					case [{tok: Kwd(KwdTypedef), pos: p1}, doc = getDoc(), name = typeName(), tl = parseConstraintParams(), {tok:Binop(OpAssign), pos: p2}, t = parseComplexType()]:
+					case [{tok: Kwd(KwdTypedef), pos: p1}, name = typeName(), tl = parseConstraintParams(), {tok:Binop(OpAssign), pos: p2}, t = parseComplexType()]:
 						switch stream {
 							case [{tok:Semicolon}]:
 							case _:
@@ -555,19 +608,9 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 							flags: c.map(function(i) return i.e),
 							data: t
 						}), pos: punion(p1,p2)};
-					case [{tok:Kwd(KwdAbstract), pos:p1}, name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = parseRepeat(parseAbstractRelations), {tok:BrOpen}, fl = parseClassFields(false, p1)]:
-						var flags = c.map(function(flag) return switch(flag.e) { case EPrivate: APrivAbstract; case EExtern: AbstractFlag.AExtern; });
-						if (st != null) {
-							flags.push(AIsType(st));
-						}
-						{ decl: EAbstract({
-							name: name,
-							doc: doc,
-							meta: meta,
-							params: tl,
-							flags: flags.concat(sl),
-							data: fl.fields
-						}), pos: punion(p1, fl.pos)};
+
+					case [a = parseAbstract(doc, meta, c)]:
+						{decl: a.decl, pos: a.pos};
 				}
 		}
 	}
@@ -617,7 +660,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						decl: EImport(acc, INormal),
 						pos: p2
 					}
-				case [{tok:#if (haxe_ver < 4) Kwd(KwdIn) #else Binop(OpIn) #end | Const(CIdent('as'))}, {tok:Const(CIdent(name))}, {tok:Semicolon, pos:p2}]:
+				case [{tok:Binop(OpIn) | Const(CIdent('as'))}, {tok:Const(CIdent(name))}, {tok:Semicolon, pos:p2}]:
 					return {
 						decl: EImport(acc, IAsName(name)),
 						pos: p2
@@ -662,10 +705,11 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return parseRepeat(parseClassField);
 	}
 
-	function parseCommonFlags():Array<{c:ClassFlag, e:EnumFlag}> {
+	function parseCommonFlags():Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag}> {
 		return switch stream {
-			case [{tok:Kwd(KwdPrivate)}, l = parseCommonFlags()]: apush(l, {c:HPrivate, e:EPrivate});
-			case [{tok:Kwd(KwdExtern)}, l = parseCommonFlags()]: apush(l, {c:HExtern, e:EExtern});
+			case [{tok:Kwd(KwdPrivate)}, l = parseCommonFlags()]: apush(l, {c:HPrivate, e:EPrivate, a:APrivAbstract});
+			case [{tok:Kwd(KwdExtern)}, l = parseCommonFlags()]: apush(l, {c:HExtern, e:EExtern, a:AExtern});
+			case [{tok:Kwd(KwdFinal)}, l = parseCommonFlags()]: apush(l, {c:HFinal, e:null, a:null});
 			case _: [];
 		}
 	}
@@ -679,7 +723,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseMetaEntry() {
 		return switch stream {
-			case [{tok:At}, name = metaName(), params = parseMetaParams(name.pos)]: {name: name.name, params: params, pos: name.pos};
+			case [{tok:At, pos:p1}, name = parseMetaName(p1), params = parseMetaParams(name.pos)]: {name: name.name, params: params, pos: name.pos};
 		}
 	}
 
@@ -690,15 +734,50 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function metaName() {
+	function parseMetaName2(p1, acc:Array<{name:String, pos:Position}>) {
+		var part = switch stream {
+			case [{tok:Const(CIdent(i)), pos:p}] if (p.miun = p1.max): 
+				{name:i, pos:punion(p, p1)};
+			case [{tok:Kwd(k), pos:p}] if (p.miun = p1.max): 
+				{name:KeywordPrinter.toString(k), pos:punion(p, p1)};
+		}
+		acc.unshift(part);
 		return switch stream {
-			case [{tok:Const(CIdent(i)), pos:p}]: {name: i, pos: p};
-			case [{tok:Kwd(k), pos:p}]: {name: KeywordPrinter.toString(k), pos:p};
-			case [{tok:DblDot}]:
+			case [{tok:Dot, pos:p1}, part = parseMetaName2(p1, acc)]: part;
+			case _: acc;
+		}
+	}
+
+	function parseMetaName(p1) {
+		return switch stream {
+			case [{tok:DblDot, pos:p}] if (p.min = p1.max):
 				switch stream {
-					case [{tok:Const(CIdent(i)), pos:p}]: {name: ':$i', pos: p};
-					case [{tok:Kwd(k), pos:p}]: {name: ":" + KeywordPrinter.toString(k), pos:p};
+					case [names = parseMetaName2(p, [])]:
+						metaNameConcat(names, false);
+					case _:
+						unexpected();
 				}
+			case [names = parseMetaName2(p1, [])]:
+				metaNameConcat(names, true);
+		}
+	}
+
+	function metaNameConcat(names:Array<{name:String, pos:Position}>, custom:Bool):{name:String, pos:Position} {
+		if (names.length <= 0) {
+			unexpected();
+		}
+		var pos = names[0].pos;
+		var nameParts:Array<String> = [];
+		for (n in names){
+			nameParts.push(n.name);
+			pos = punion(pos, n.pos);
+		}
+		nameParts.reverse();
+		if (custom) {
+			return {name:nameParts.join("."), pos:pos};
+		}
+		else {
+			return {name:":" + nameParts.join("."), pos:pos};
 		}
 	}
 
@@ -730,8 +809,39 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	}
 
 	function parseComplexType() {
-		var t = parseComplexTypeInner();
-		return parseComplexTypeNext(t);
+		return parseComplexTypeMaybeNamed(false);
+	}
+
+	function parseComplexTypeMaybeNamed(allowNamed:Bool) {
+		return switch stream {
+			case [{tok:POpen, pos:p1}, tl = psep(Comma, function () return parseComplexTypeMaybeNamed(true)), {tok:PClose, pos:p2}]:
+				switch tl {
+					case []:
+						parseFunctionTypeNext(tl, p1);
+					case [TNamed(_, _)]:
+						parseFunctionTypeNext(tl, p1);
+					case [t]:
+						var t = TParent(t);
+						parseComplexTypeNext(t);
+					case _:
+						parseFunctionTypeNext(tl, p1);
+				}
+			case _:
+				var t = parseComplexTypeInner(allowNamed);
+				parseComplexTypeNext(t);
+		}
+	}
+
+	function parseFunctionTypeNext(tl, p1) {
+		return switch stream {
+			case [{tok:Arrow, pos:pa}]:
+				switch stream {
+					case [tret = parseComplexTypeInner(false)]:
+						TFunction(tl, tret);
+				}
+			case _:
+				unexpected();
+		}
 	}
 
 	function parseStructuralExtension() {
@@ -740,7 +850,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseComplexTypeInner():ComplexType {
+	function parseComplexTypeInner(allowNamed:Bool):ComplexType {
 		return switch stream {
 			case [{tok:POpen}, t = parseComplexType(), {tok:PClose}]: TParent(t);
 			case [{tok:BrOpen, pos: p1}]:
@@ -757,8 +867,16 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case [l = parseClassFields(true, p1)]: TAnonymous(l.fields);
 					case _: unexpected();
 				}
-			case [{tok:Question}, t = parseComplexTypeInner()]:
+			case [{tok:Question}, t = parseComplexTypeInner(allowNamed)]:
 				TOptional(t);
+			case [n = dollarIdent()]:
+				switch stream {
+					case [{tok:DblDot}, t = parseComplexType()] if (allowNamed):
+						TNamed(n.name, t);
+					case _:
+						var t = parseTypePath2([], n);
+						TPath(t);
+				}
 			case [t = parseTypePath()]:
 				TPath(t);
 		}
@@ -771,35 +889,40 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	function parseTypePath1(pack:Array<String>) {
 		return switch stream {
 			case [ident = dollarIdentMacro(pack)]:
-				if (isLowerIdent(ident.name)) {
+				parseTypePath2(pack, ident);
+		}
+	}
+
+
+	function parseTypePath2(pack:Array<String>, ident) {
+		if (isLowerIdent(ident.name)) {
+			return switch stream {
+				case [{tok:Dot}]:
+					parseTypePath1(apush(pack, ident.name));
+				case [{tok:Semicolon}]:
+					throw new ParserError(Custom("Type name should start with an uppercase letter"), ident.pos);
+				case _: unexpected();
+			}
+		} else {
+			var sub = switch stream {
+				case [{tok:Dot}]:
 					switch stream {
-						case [{tok:Dot}]:
-							parseTypePath1(apush(pack, ident.name));
-						case [{tok:Semicolon}]:
-							throw new ParserError(Custom("Type name should start with an uppercase letter"), ident.pos);
+						case [{tok:Const(CIdent(name))} && !isLowerIdent(name)]: name;
 						case _: unexpected();
 					}
-				} else {
-					var sub = switch stream {
-						case [{tok:Dot}]:
-							switch stream {
-								case [{tok:Const(CIdent(name))} && !isLowerIdent(name)]: name;
-								case _: unexpected();
-							}
-						case _:
-							null;
-					}
-					var params = switch stream {
-						case [{tok:Binop(OpLt)}, l = psep(Comma, parseTypePathOrConst), {tok:Binop(OpGt)}]: l;
-						case _: [];
-					}
-					{
-						pack: pack,
-						name: ident.name,
-						params: params,
-						sub: sub
-					}
-				}
+				case _:
+					null;
+			}
+			var params = switch stream {
+				case [{tok:Binop(OpLt)}, l = psep(Comma, parseTypePathOrConst), {tok:Binop(OpGt)}]: l;
+				case _: [];
+			}
+			return {
+				pack: pack,
+				name: ident.name,
+				params: params,
+				sub: sub
+			}
 		}
 	}
 
@@ -826,9 +949,16 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Arrow}, t2 = parseComplexType()]:
 				switch(t2) {
 					case TFunction(args,r):
-						TFunction(apush(args,t),r);
+						TFunction(aunshift(args,t),r);
 					case _:
 						TFunction([t],t2);
+				}
+			case [{tok:Binop(OpAnd), pos:pa}, t2 = parseComplexType()]:
+				switch(t2) {
+					case TIntersection(tl):
+						TIntersection(aunshift(tl, t));
+					case _:
+						TIntersection([t, t2]);
 				}
 			case _: t;
 		}
@@ -898,56 +1028,76 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
+	function parseFunctionField(doc, meta, accessList) {
+		return switch stream {
+			case [{tok:Kwd(KwdFunction), pos:p1}, name = parseFunName(), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma, parseFunParam), {tok:PClose}, t = parseTypeOpt()]:
+				var e = switch stream {
+					case [e = toplevelExpr(), _ = semicolon()]:
+						{ expr: e, pos: e.pos };
+					case [{tok: Semicolon,pos:p}]:
+						{ expr: null, pos: p}
+					case _: unexpected();
+				}
+				var f = {
+					params: pl,
+					args: al,
+					ret: t,
+					expr: e.expr
+				}
+				{
+					name: name,
+					pos: punion(p1, e.pos),
+					kind: FFun(f)
+				}
+		}
+	}
+
+	function parseVarFieldAssignment() {
+		return switch stream {
+			case [{tok:Binop(OpAssign)}, e = toplevelExpr(), p2 = semicolon()]: { expr: e, pos: p2 };
+			case [{tok:Semicolon, pos:p2}]: { expr: null, pos: p2 };
+			case _: unexpected();
+		}
+	}
+
 	function parseClassField():Field {
 		doc = null;
 		return switch stream {
 			case [meta = parseMeta(), al = parseCfRights(true,[]), doc = getDoc()]:
 				var data = switch stream {
-					case [{tok:Kwd(KwdVar), pos:p1}, name = ident()]:
+					case [{tok:Kwd(KwdVar), pos:p1}, name = questionableDollarIdent()]:
 						switch stream {
 							case [{tok:POpen}, i1 = propertyIdent(), {tok:Comma}, i2 = propertyIdent(), {tok:PClose}]:
 								var t = parseTypeOpt();
-								var e = switch stream {
-									case [{tok:Binop(OpAssign)}, e = toplevelExpr(), p2 = semicolon()]: { expr: e, pos: p2 };
-									case [{tok:Semicolon, pos:p2}]: { expr: null, pos: p2 };
-									case _: unexpected();
-								}
+								var e = parseVarFieldAssignment();
 								{
 									name: name.name,
 									pos: punion(p1,e.pos),
 									kind: FProp(i1,i2,t,e.expr)
 								}
 							case [t = parseTypeOpt()]:
-								var e = switch stream {
-									case [{tok:Binop(OpAssign)}, e = toplevelExpr(), p2 = semicolon()]: { expr: e, pos: p2 };
-									case [{tok:Semicolon, pos:p2}]: { expr: null, pos: p2 };
-									case _: unexpected();
-								}
+								var e = parseVarFieldAssignment();
 								{
 									name: name.name,
 									pos: punion(p1,e.pos),
 									kind: FVar(t,e.expr)
 								}
 						}
-					case [{tok:Kwd(KwdFunction), pos:p1}, name = parseFunName(), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma, parseFunParam), {tok:PClose}, t = parseTypeOpt()]:
-						var e = switch stream {
-							case [e = toplevelExpr(), _ = semicolon()]:
-								{ expr: e, pos: e.pos };
-							case [{tok: Semicolon,pos:p}]:
-								{ expr: null, pos: p}
-							case _: unexpected();
+					case [{tok:Kwd(KwdFinal), pos:p1}]:
+						switch stream {
+							case [name = questionableDollarIdent(), t = parseTypeOpt(), e = parseVarFieldAssignment()]:
+								al.push(AFinal);
+								{
+									name: name.name,
+									pos: punion(p1,e.pos),
+									kind: FVar(t,e.expr)
+								}
+							case [al2 = parseCfRights(true,al), f = parseFunctionField(doc, meta, apush(al2, AFinal))]:
+								al = al2;
+								f;
 						}
-						var f = {
-							params: pl,
-							args: al,
-							ret: t,
-							expr: e.expr
-						}
-						{
-							name: name,
-							pos: punion(p1, e.pos),
-							kind: FFun(f)
-						}
+					case [f = parseFunctionField(doc, meta, al)]:
+						f;
 					case _:
 						if (al.length == 0)
 							throw noMatch();
@@ -1076,7 +1226,17 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseBlockElt() {
 		return switch stream {
-			case [{tok:Kwd(KwdVar), pos:p1}, vl = psep(Comma, parseVarDecl), p2 = semicolon()]: { expr: EVars(vl), pos:punion(p1,p2)};
+			case [{tok:Kwd(KwdVar), pos:p1}, vl = psep(Comma, function() return parseVarDecl(false)), p2 = semicolon()]: { expr: EVars(vl), pos:punion(p1,p2)};
+			case [{tok:Kwd(KwdFinal), pos:p1}, vl = psep(Comma, () -> parseVarDecl(true)), p2 = semicolon()]: { expr: EVars(vl), pos:punion(p1,p2)};
+			case [{tok:Kwd(KwdInline), pos:p1}]:
+				switch stream {
+					case [{tok:Kwd(KwdFunction)}, e = parseFunction(p1, true), _ = semicolon()]:
+						e;
+					case [e = secureExpr(), _ = semicolon()]:
+						makeMeta(":inline", [], e, p1);
+					case _:
+						unexpected();
+				}
 			case [e = expr(), _ = semicolon()]: e;
 		}
 	}
@@ -1120,12 +1280,12 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return acc;
 	}
 
-	function parseVarDecl() {
+	function parseVarDecl(isFinal:Bool) {
 		return switch stream {
 			case [id = dollarIdent(), t = parseTypeOpt()]:
 				switch stream {
-					case [{tok:Binop(OpAssign)}, e = expr()]: { name: id.name, type: t, expr: e, isFinal: false};
-					case _: { name: id.name, type:t, expr: null, isFinal: false};
+					case [{tok:Binop(OpAssign)}, e = expr()]: { name: id.name, type: t, expr: e, isFinal: isFinal};
+					case _: { name: id.name, type:t, expr: null, isFinal: isFinal};
 				}
 		}
 	}
@@ -1160,13 +1320,71 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				var toType = reify(inMacro).toType;
 				var t = toType(t,p);
 				{ expr: ECheckType(t, TPath( {pack:["haxe","macro"], name:"Expr", sub:"ComplexType", params: []})), pos: p};
-			case [{tok:Kwd(KwdVar), pos:p1}, vl = psep(Comma, parseVarDecl)]:
+			case [{tok:Kwd(KwdVar), pos:p1}, vl = psep(Comma, function () return parseVarDecl(false))]:
+				reifyExpr({expr:EVars(vl), pos:p1});
+			case [{tok:Kwd(KwdFinal), pos:p1}, vl = psep(Comma, function () return parseVarDecl(true))]:
 				reifyExpr({expr:EVars(vl), pos:p1});
 			case [d = parseClass([],[],false)]:
 				var toType = reify(inMacro).toTypeDef;
 				{ expr: ECheckType(toType(d), TPath( {pack:["haxe","macro"], name:"Expr", sub:"TypeDefinition", params: []})), pos: p};
 			case [e = secureExpr()]:
 				reifyExpr(e);
+		}
+	}
+
+	function parseFunction(p1, inl) {
+		return switch stream {
+			case [name = parseOptional(dollarIdent), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma, parseFunParam), {tok:PClose}, t = parseOptional(parseTypeHint)]:
+				var make = function(eBody) {
+					var f = {
+						params:pl, 
+						ret:t, 
+						args:al, 
+						expr:eBody
+					};
+					var e = {expr:EFunction((name == null) ? null : name.name, f), pos:punion(p1, eBody.pos)};
+					return (inl) ? makeMeta(":inline", [], e, p1) : e;
+				}
+				make(secureExpr());
+		}
+	}
+
+	function arrowExpr() {
+		return switch stream {
+			case [{tok:Arrow}, e = expr()]: 
+				e;
+		}
+	}
+
+	function arrowFunction(p1, al, er) {
+		return {expr: EFunction(null, {params:[], ret:null, args:al, expr:{expr:EReturn(er), pos:er.pos}}), pos:punion(p1, er.pos)};
+	}
+
+	function arrowIdentChecktype (e) {
+		return switch (e.expr) {
+			case EConst(CIdent(n)):
+				{name:n, type:null};
+			case ECheckType({expr:EConst(CIdent(n))}, t):
+				{name:n, type:t};
+			case _:
+				unexpected();
+		}
+	}
+
+	function arrowFirstParam(e:Expr) {
+		return switch (e.expr) {
+			case EConst(CIdent(n)):
+				{name:n, opt:false, meta:[], type:null, value:null};
+			case EBinop(op, e1, e2): 
+				null;
+			case EParenthesis({expr:EBinop(OpAssign, e1, e2)}):
+				var np = arrowIdentChecktype(e1);
+				{name:np.name, opt:true, meta:[], type:np.type, value:e2};
+			case EParenthesis(e):
+				var np = arrowIdentChecktype(e);
+				{name:np.name, opt:false, meta:[], type:np.type, value:null};
+			case _: 
+				unexpected();
 		}
 	}
 
@@ -1181,8 +1399,12 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case _: e;
 				}
 			case [{tok:Kwd(KwdMacro), pos:p}]:
-				parseMacroExpr(p);
-			case [{tok:Kwd(KwdVar), pos: p1}, v = parseVarDecl()]: { expr: EVars([v]), pos: p1};
+				switch stream {
+					case [{tok:Dot, pos:pd}, e = parseField({expr:EConst(CIdent("macro")), pos:p}, pd)]: e;
+					case [e = parseMacroExpr(p)]: e;
+				}
+			case [{tok:Kwd(KwdVar), pos: p1}, v = parseVarDecl(false)]: { expr: EVars([v]), pos: p1};
+			case [{tok:Kwd(KwdFinal), pos: p1}, v = parseVarDecl(true)]: { expr: EVars([v]), pos: p1};
 			case [{tok:Const(c), pos:p}]: exprNext({expr:EConst(c), pos:p});
 			case [{tok:Kwd(KwdThis), pos:p}]: exprNext({expr: EConst(CIdent("this")), pos:p});
 			case [{tok:Kwd(KwdTrue), pos:p}]: exprNext({expr: EConst(CIdent("true")), pos:p});
@@ -1197,6 +1419,9 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 								var pu = punion(p1, p2);
 								var ep = {expr: EParenthesis({expr: ECheckType(e, t), pos: pu}), pos: pu};
 								exprNext({expr: ECast(ep, null), pos: punion(p1, pu)});
+							case [{tok:Const(CIdent("is")), pos:p_is}, t = parseTypePath(), {tok:PClose, pos:p2}]:
+								var e_is = makeIs(e, t, punion(p1, p2), p_is);
+								exprNext({expr:ECast(e_is, null), pos:punion(p1, e_is.pos)});
 							case [{tok:PClose, pos:p2}]:
 								var ep = exprNext({expr: EParenthesis(e), pos: punion(pp, p2)});
 								exprNext({expr:ECast(ep,null),pos:punion(p1,ep.pos)});
@@ -1210,24 +1435,54 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case [al = psep(Comma, expr), {tok:PClose, pos:p2}]: exprNext({expr:ENew(t,al), pos:punion(p1, p2)});
 					case _: unexpected();
 				}
-			case [{tok:POpen, pos: p1}, e = expr()]:
+			case [{tok:POpen, pos: p1}]:
 				switch stream {
-					case [{tok:PClose, pos:p2}]: exprNext({expr:EParenthesis(e), pos:punion(p1, p2)});
-					case [t = parseTypeHint(), {tok:PClose, pos:p2}]: exprNext({expr:ECheckType(e, t), pos:punion(p1, p2)});
-					case _: unexpected();
+					case [{tok:PClose, pos:p2}, er = arrowExpr()]: 
+						arrowFunction(p1, [], er);
+					case [{tok:Question}, al = psep(Comma, parseFunParam), {tok:PClose}, er = arrowExpr()]:
+						if (al.length > 0) {
+							al[1].opt = true;
+						}
+						arrowFunction (p1, al, er);
+					case [e = expr()]:
+						switch stream {
+							case [{tok:PClose, pos:p2}]:
+								exprNext({expr: EParenthesis(e), pos:punion(p1, p2)});
+							case [{tok:Comma}, al = psep(Comma, parseFunParam), {tok:PClose}, er = arrowExpr()]:
+								arrowFunction (p1, aunshift(al, arrowFirstParam(e)), er);
+							case [t = parseTypeHint()]: {
+								switch stream {
+									case [{tok:PClose, pos:p2}]:
+										exprNext({expr: EParenthesis({expr:ECheckType(e, t), pos:punion(p1, p2)}), pos:punion(p1, p2)});
+									case [{tok:Comma, pos:p2}, al = psep(Comma, parseFunParam), {tok:PClose}, er = arrowExpr()]:
+										var np = arrowIdentChecktype(e);
+										arrowFunction (p1, aunshift(al, {name:np.name, opt:false, meta:[], type:t, value:null}), er);
+									case [{tok:Binop(OpAssign), pos:p2}, ea1 = expr()]:
+										var withArgs = function(al, er) {
+											return switch (e.expr) {
+												case EConst(CIdent(n)):
+													arrowFunction (p1, aunshift(al, {name:n, opt:true, meta:[], type:t, value:ea1}), er);
+												case _:
+													unexpected();
+											}
+										}
+										switch stream {
+											case [{tok:PClose}, er = arrowExpr()]:
+												withArgs([], er);
+											case [{tok:Comma}, al = psep(Comma, parseFunParam), {tok:PClose}, er = arrowExpr()]:
+												withArgs(al, er);
+											case _:
+												unexpected();
+										}
+								}
+							}
+							case [{tok:Const(CIdent("is")), pos:p_is}, t = parseTypePath(), {tok:PClose, pos:p2}]:
+								exprNext(makeIs(e, t, punion(p1, p2), p_is));
+							case _: unexpected();
+						}
 				}
 			case [{tok:BkOpen, pos:p1}, l = parseArrayDecl(), {tok:BkClose, pos:p2}]: exprNext({expr: EArrayDecl(l), pos:punion(p1,p2)});
-			case [inl = inlineFunction(), name = parseOptional(dollarIdent), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma,parseFunParam), {tok:PClose}, t = parseTypeOpt()]:
-				function make(e) {
-					var f = {
-						params: pl,
-						ret: t,
-						args: al,
-						expr: e
-					};
-					return { expr: EFunction(name == null ? null : inl.isInline ? "inline_" + name.name : name.name, f), pos: punion(inl.pos, e.pos)};
-				}
-				exprNext(make(secureExpr()));
+			case [{tok:Kwd(KwdFunction), pos:p1}, e = parseFunction(p1, false)]: e;
 			case [{tok:Unop(op), pos:p1}, e = expr()]: makeUnop(op,e,p1);
 			case [{tok:Binop(OpSub), pos:p1}, e = expr()]:
 				function neg(s:String) {
@@ -1272,6 +1527,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:IntInterval(i), pos:p1}, e2 = expr()]: makeBinop(OpInterval,{expr:EConst(CInt(i)), pos:p1}, e2);
 			case [{tok:Kwd(KwdUntyped), pos:p1}, e = expr()]: { expr: EUntyped(e), pos:punion(p1,e.pos)};
 			case [{tok:Dollar(v), pos:p}]: exprNext({expr:EConst(CIdent("$" + v)), pos:p});
+			case [{tok:Kwd(KwdInline), pos:p}, e = secureExpr()]: makeMeta(":inline", [], e, p);
 		}
 	}
 
@@ -1281,25 +1537,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function exprNext(e1:Expr):Expr {
 		return switch stream {
-			case [{tok:Dot, pos:p}]:
-				switch stream {
-					case [{tok:Dollar(v), pos:p2}]:
-						exprNext({expr:EField(e1, "$" + v), pos:punion(e1.pos, p2)});
-					case [{tok:Const(CIdent(f)), pos:p2} && p.max == p2.min]:
-						exprNext({expr:EField(e1,f), pos:punion(e1.pos,p2)});
-					case [{tok:Kwd(KwdMacro), pos:p2} && p.max == p2.min]:
-						exprNext({expr:EField(e1,"macro"), pos:punion(e1.pos,p2)});
-					case [{tok:Kwd(KwdExtern), pos:p2} && p.max == p2.min]:
-						exprNext({expr:EField(e1,"extern"), pos:punion(e1.pos,p2)});
-					case [{tok:Kwd(KwdNew), pos:p2} && p.max == p2.min]:
-						exprNext({expr:EField(e1,"new"), pos:punion(e1.pos,p2)});
-					case _:
-						switch(e1) {
-							case {expr: EConst(CInt(v)), pos:p2} if (p2.max == p.min):
-								exprNext({expr:EConst(CFloat(v + ".")), pos:punion(p,p2)});
-							case _: unexpected();
-						}
-				}
+			case [{tok:Dot, pos:p}, e = parseField(e1, p)]: e;
 			case [{tok:POpen, pos:_}]:
 				switch stream {
 					case [params = parseCallParams(), {tok:PClose, pos:p2}]:
@@ -1308,6 +1546,9 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				}
 			case [{tok:BkOpen}, e2 = expr(), {tok:BkClose, pos:p2}]:
 				exprNext({expr:EArray(e1,e2), pos:punion(e1.pos,p2)});
+			case [{tok:Arrow}]:
+				var er = expr();
+				arrowFunction(e1.pos, [arrowFirstParam(e1)], er);
 			case [{tok:Binop(OpGt)}]:
 				switch stream {
 					case [{tok:Binop(OpGt)}]:
@@ -1332,10 +1573,6 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				makeBinop(op,e1,e2);
 			case [{tok:Question}, e2 = expr(), {tok:DblDot}, e3 = expr()]:
 				{ expr: ETernary(e1,e2,e3), pos: punion(e1.pos, e3.pos)};
-			#if (haxe_ver < 4)
-			case [{tok:Kwd(KwdIn)}, e2 = expr()]:
-				{expr:EIn(e1,e2), pos:punion(e1.pos, e2.pos)};
-			#end
 			case [{tok:Unop(op), pos:p} && isPostfix(e1,op)]:
 				exprNext({expr:EUnop(op,true,e1), pos:punion(e1.pos, p)});
 			case [{tok:BrOpen, pos:p1} && isDollarIdent(e1), eparam = expr(), {tok:BrClose,pos:p2}]:
@@ -1345,6 +1582,29 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case _: throw false;
 				}
 			case _: e1;
+		}
+	}
+
+	function parseField(e1, p) {
+		return switch stream {
+			case [{tok:Kwd(KwdMacro), pos:p2} && p.max == p2.min]:
+				exprNext({expr:EField(e1,"macro"), pos:punion(e1.pos,p2)});
+			case [{tok:Kwd(KwdExtern), pos:p2} && p.max == p2.min]:
+				exprNext({expr:EField(e1,"extern"), pos:punion(e1.pos,p2)});
+			case [{tok:Kwd(KwdNew), pos:p2} && p.max == p2.min]:
+				exprNext({expr:EField(e1,"new"), pos:punion(e1.pos,p2)});
+			case [{tok:Kwd(k), pos:p2} && p.max == p2.min]:
+				exprNext({expr:EField(e1,KeywordPrinter.toString(k)), pos:punion(e1.pos,p2)});
+			case [{tok:Const(CIdent(f)), pos:p2} && p.max == p2.min]:
+				exprNext({expr:EField(e1,f), pos:punion(e1.pos,p2)});
+			case [{tok:Dollar(v), pos:p2}]:
+				exprNext({expr:EField(e1, "$" + v), pos:punion(e1.pos, p2)});
+			case _:
+				switch(e1) {
+					case {expr: EConst(CInt(v)), pos:p2} if (p2.max == p.min):
+						exprNext({expr:EConst(CFloat(v + ".")), pos:punion(p,p2)});
+					case _: unexpected();
+				}
 		}
 	}
 
@@ -1358,6 +1618,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	function parseExprOrVar() {
 		return switch stream {
 			case [{tok:Kwd(KwdVar),pos:p1}, name = dollarIdent()]: { expr: EVars([{name: name.name, type:null, expr:null}]), pos: p1 };
+			case [{tok:Kwd(KwdFinal),pos:p1}, name = dollarIdent()]: { expr: EVars([{name: name.name, type:null, expr:null}]), pos: p1 };
 			case [e = expr()]: e;
 		}
 	}
@@ -1496,9 +1757,7 @@ private class Reificator{
 			case OpAssignOp(o): return mkEnum("Binop", "OpAssignOp", [toBinop(o, p)], p);
 			case OpInterval: return op("OpInterval");
 			case OpArrow: return op("OpArrow");
-			#if (haxe_ver >= 4)
 			case OpIn: return op("OpIn");
-			#end
 		}
 	}
 
@@ -1770,10 +2029,6 @@ private class Reificator{
 				expr("EBlock", [toExprArray(el, p)]);
 			case EFor(e1, e2):
 				expr("EFor", [loop(e1), loop(e2)]);
-			#if (haxe_ver < 4)
-			case EIn(e1, e2):
-				expr("EIn", [loop(e1), loop(e2)]);
-			#end
 			case EIf(e1, e2, eelse):
 				expr("EIf", [loop(e1), loop(e2), toOpt(toExpr, eelse, p)]);
 			case EWhile(e1, e2, normalWhile):
@@ -1914,10 +2169,12 @@ private class Reificator{
 			var ext = null;
 			var impl = [];
 			var interf = false;
+			var isFinal = false;
 
 			for (f in d.flags){
 				switch(f){
 					case HExtern | HPrivate:
+					case HFinal: isFinal = true;
 					case HInterface: interf = true;
 					case HExtends(t): ext = toTPath(t, td.pos);
 					case HImplements(i): impl.push(toTPath(i, td.pos));
@@ -1948,6 +2205,7 @@ private class Reificator{
 
 			kindParams.push({expr:EArrayDecl(impl),pos:p});
 			kindParams.push(toBool(interf, p));
+			kindParams.push(toBool(isFinal, p));
 
 			var fields = [];
 			for (d in d.data){

@@ -275,6 +275,8 @@ class Test extends haxe.unit.TestCase {
 		eeq("@:meta a");
 		eeq("@:meta(a) b");
 		eeq("@:meta(a, b) c");
+		eeq("@:meta.meta a");
+		eeq("@meta.meta a");
 	}
 
 	function testPackage() {
@@ -417,11 +419,13 @@ class Test extends haxe.unit.TestCase {
 		//eeq("macro $p{a};",       '',fakePosInfos); // ???
 		//eeq("macro $v{a};",       '',fakePosInfos); // ???
 		eeq("macro var a;",       '({ expr : EVars([{ name : "a", type : null, expr : null }]), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro @meta var a;", '({ expr : EMeta({ name : "meta", params : [], pos : { file : "main:0", min : 7, max : 15 } }, { expr : EVars([{ name : "a", type : null, expr : null }]), pos : { file : "main:0", min : 12, max : 15 } }), pos : { file : "main:0", min : 7, max : 15 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro @meta var a;", '({ expr : EMeta({ name : "meta", params : [], pos : { file : "main:0", min : 6, max : 15 } }, { expr : EVars([{ name : "a", type : null, expr : null }]), pos : { file : "main:0", min : 12, max : 15 } }), pos : { file : "main:0", min : 6, max : 15 } } : haxe.macro.Expr)',fakePosInfos);
 		eeq("macro f();",         '({ expr : ECall({ expr : EConst(CIdent("f")), pos : { file : "main:0", min : 6, max : 7 } }, []), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
 		eeq("macro :Array;",      '(TPath({ pack : [], name : "Array", params : [] }) : haxe.macro.Expr.ComplexType)',fakePosInfos);
-		eeq("macro class A{};",   '({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 15 }, meta : [], params : [], isExtern : false, kind : TDClass(null, [], false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
-		eeq("macro class A<T>{};",'({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 18 }, meta : [], params : [{ name : "T", params : [], constraints : [] }], isExtern : false, kind : TDClass(null, [], false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
+
+		eeq("macro class A{};",   '({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 15 }, meta : [], params : [], isExtern : false, kind : TDClass(null, [], false, false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
+		eeq("macro class A<T>{};",'({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 18 }, meta : [], params : [{ name : "T", params : [], constraints : [] }], isExtern : false, kind : TDClass(null, [], false, false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
+		eeq("macro.Utils.hello()");
 	}
 
 	function testIssue6() {
@@ -472,7 +476,7 @@ class Test extends haxe.unit.TestCase {
 	}
 
 	function testIssue19() {
-		eeq("(null : { a:Int, b:String, c:Bool })", "(null : { var a : Int; var b : String; var c : Bool; })");
+		eeq("(null : { a:Int, b:String, c:Bool })", "((null : { var a : Int; var b : String; var c : Bool; }))");
 	}
 
 	function testIssue30() {
@@ -489,7 +493,56 @@ class Test extends haxe.unit.TestCase {
 	}
 
 	function testMultilineStringInterpolation() {
-		peq("class C { static function main() '{${\nprintClassRec(c,'',s)\n}}';}", "class C {static function main() \"{${\nprintClassRec(c,\\'\\',s)\n}}\";}");
+		peq("class C { static function main() '{${\nprintClassRec(c,'',s)\n}}';}", "class C {static function main() \"{${\\nprintClassRec(c,\\'\\',s)\\n}}\";\n}");
+	}
+
+	function testFinalFields() {
+		peq("class C { final a:Int = 99; }", "class C {final var a : Int = 99;}");
+        peq("class C { final static function main():Void {} }", "class C {static final function main():Void { }}");
+        peq("class C { final function new() {} }", "class C {final function new() { }}");
+		peq("final class C {}", "final class C {}");
+	}
+
+	function testEnumAbstract() {
+		peq("abstract C(Int) {}", "abstract C(Int) {}");
+		peq("abstract C(Int) to String {}", "abstract C(Int) to String {}");
+		peq("abstract C(Int) from Int to Float {}", "abstract C(Int) from Int to Float {}");
+		peq("enum C {}", "enum C {}");
+
+		peq("@:enum abstract C(Int) {}", "@:enum abstract C(Int) {}");
+		peq("enum abstract C(Int) {}", "@:enum abstract C(Int) {}");
+	}
+
+	function testArrowFunctions() {
+		peq("class C { var f = () -> Math.random(); }", "class C {var f = function() return Math.random();}");
+		peq("class C { var f = (i) -> i * i + 2; }", "class C {var f = function(i) return i * i + 2;}");
+		peq("class C { var f = (i:Int) -> i * i + 2; }", "class C {var f = function(i:Int) return i * i + 2;}");
+		peq("class C { var f = (i:Int, j:Float) -> i * j + 2; }", "class C {var f = function(i:Int, j:Float) return i * j + 2;}");
+		peq("class C { var f:Int -> Int; }", "class C {var f : Int -> Int;}");
+		peq("class C { var f:Int -> Float -> Int; }", "class C {var f : (Int, Float) -> Int;}");
+		peq("class C { var f:(i:Int) -> Int; }", "class C {var f : (i:Int) -> Int;}");
+		peq("class C { var f:(?i:Int) -> Int; }", "class C {var f : (?i:Int) -> Int;}");
+		peq("class C { var f:(i:Int, j:Float) -> Int; }", "class C {var f : (i:Int, j:Float) -> Int;}");
+		peq("class C { var f:(?i:Int, ?j:Float) -> Int; }", "class C {var f : (?i:Int, ?j:Float) -> Int;}");
+	}
+
+	function testInline() {
+		peq("class C { function test() { inline test(); } }", "class C {function test() {@:inline test();}}");
+		peq("class C { function test() { var p = inline new ParamClass<Int>(1); inline p.test(10); } }", "class C {function test() {var p = @:inline new ParamClass<Int>(1);@:inline p.test(10);}}");
+	}
+
+	function testIs() {
+		eeq("('' is String)", 'Std.is("", String)');
+		eeq("([] is String)", "Std.is([], String)");
+		eeq("(cast unit.MyEnum.A is Array)", "Std.is(cast unit.MyEnum.A, Array)");
+		eeq("(map is haxe.ds.StringMap)", "Std.is(map, ds.haxe.StringMap)");
+	}
+
+	function testTypeIntersection() {
+		eeq("function memberMultiple < A:Base & I1 > (a:A):A { return a; }", "function memberMultiple<A:(Base & I1)>(a:A):A {return a;}");
+		eeq("function memberAnon < A:{ x : Int } & { y : Float }> (v:A) { return v.x + v.y; }", "function memberAnon<A:({ var x : Int; } & { var y : Float; })>(v:A) {return v.x + v.y;}");
+		peq("private typedef C2 = {} & A;", "typedef C2 = { } & A;");
+		peq("private typedef D2 = A & B;", "typedef D2 = A & B;");
 	}
 
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {

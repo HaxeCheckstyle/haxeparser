@@ -1,7 +1,6 @@
 language: haxe
 
 haxe:
-  - 3.4.2
   - development
 
 sudo: false
@@ -12,6 +11,10 @@ addons:
   apt:
     packages:
       - mono-devel
+
+install:
+  - haxelib git hxparse https://github.com/Simn/hxparse --never
+  - haxelib install hx3compat
 
 hxml:
   - build.hxml
