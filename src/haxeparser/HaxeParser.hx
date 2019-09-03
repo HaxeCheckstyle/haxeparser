@@ -736,9 +736,9 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseMetaName2(p1, acc:Array<{name:String, pos:Position}>) {
 		var part = switch stream {
-			case [{tok:Const(CIdent(i)), pos:p}] if (p.miun = p1.max): 
+			case [{tok:Const(CIdent(i)), pos:p}] if (p.miun = p1.max):
 				{name:i, pos:punion(p, p1)};
-			case [{tok:Kwd(k), pos:p}] if (p.miun = p1.max): 
+			case [{tok:Kwd(k), pos:p}] if (p.miun = p1.max):
 				{name:KeywordPrinter.toString(k), pos:punion(p, p1)};
 		}
 		acc.unshift(part);
@@ -1337,12 +1337,12 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [name = parseOptional(dollarIdent), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma, parseFunParam), {tok:PClose}, t = parseOptional(parseTypeHint)]:
 				var make = function(eBody) {
 					var f = {
-						params:pl, 
-						ret:t, 
-						args:al, 
+						params:pl,
+						ret:t,
+						args:al,
 						expr:eBody
 					};
-					var e = {expr:EFunction((name == null) ? null : name.name, f), pos:punion(p1, eBody.pos)};
+					var e = {expr:EFunction((name == null) ? FAnonymous : FNamed(name.name), f), pos:punion(p1, eBody.pos)};
 					return (inl) ? makeMeta(":inline", [], e, p1) : e;
 				}
 				make(secureExpr());
@@ -1351,13 +1351,13 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function arrowExpr() {
 		return switch stream {
-			case [{tok:Arrow}, e = expr()]: 
+			case [{tok:Arrow}, e = expr()]:
 				e;
 		}
 	}
 
 	function arrowFunction(p1, al, er) {
-		return {expr: EFunction(null, {params:[], ret:null, args:al, expr:{expr:EReturn(er), pos:er.pos}}), pos:punion(p1, er.pos)};
+		return {expr: EFunction(FArrow, {params:[], ret:null, args:al, expr:{expr:EReturn(er), pos:er.pos}}), pos:punion(p1, er.pos)};
 	}
 
 	function arrowIdentChecktype (e) {
@@ -1375,7 +1375,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch (e.expr) {
 			case EConst(CIdent(n)):
 				{name:n, opt:false, meta:[], type:null, value:null};
-			case EBinop(op, e1, e2): 
+			case EBinop(op, e1, e2):
 				null;
 			case EParenthesis({expr:EBinop(OpAssign, e1, e2)}):
 				var np = arrowIdentChecktype(e1);
@@ -1383,7 +1383,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case EParenthesis(e):
 				var np = arrowIdentChecktype(e);
 				{name:np.name, opt:false, meta:[], type:np.type, value:null};
-			case _: 
+			case _:
 				unexpected();
 		}
 	}
@@ -1437,7 +1437,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				}
 			case [{tok:POpen, pos: p1}]:
 				switch stream {
-					case [{tok:PClose, pos:p2}, er = arrowExpr()]: 
+					case [{tok:PClose, pos:p2}, er = arrowExpr()]:
 						arrowFunction(p1, [], er);
 					case [{tok:Question}, al = psep(Comma, parseFunParam), {tok:PClose}, er = arrowExpr()]:
 						if (al.length > 0) {
@@ -2023,8 +2023,13 @@ private class Reificator{
 					];
 					return toObj(fields, p);
 				}, vl, p)]);
-			case EFunction(name, f):
-				expr("EFunction", [toOpt(toString, name, p), toFun(f, p)]);
+			case EFunction(kind, f):
+				var kind = switch (kind) {
+					case FAnonymous: mkEnum("FunctionKind", "FAnonymous", [], p);
+					case FNamed(name, inlined): mkEnum("FunctionKind", "FNamed", [toString(name, p), toOpt(toBool, inlined, p)], p);
+					case FArrow: mkEnum("FunctionKind", "FArrow", [], p);
+				}
+				expr("EFunction", [kind, toFun(f, p)]);
 			case EBlock(el):
 				expr("EBlock", [toExprArray(el, p)]);
 			case EFor(e1, e2):
