@@ -1587,15 +1587,15 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseField(e1, p) {
 		return switch stream {
-			case [{tok:Kwd(KwdMacro), pos:p2} && p.max == p2.min]:
+			case [{tok:Kwd(KwdMacro), pos:p2}]:
 				exprNext({expr:EField(e1,"macro"), pos:punion(e1.pos,p2)});
-			case [{tok:Kwd(KwdExtern), pos:p2} && p.max == p2.min]:
+			case [{tok:Kwd(KwdExtern), pos:p2}]:
 				exprNext({expr:EField(e1,"extern"), pos:punion(e1.pos,p2)});
-			case [{tok:Kwd(KwdNew), pos:p2} && p.max == p2.min]:
+			case [{tok:Kwd(KwdNew), pos:p2}]:
 				exprNext({expr:EField(e1,"new"), pos:punion(e1.pos,p2)});
-			case [{tok:Kwd(k), pos:p2} && p.max == p2.min]:
+			case [{tok:Kwd(k), pos:p2}]:
 				exprNext({expr:EField(e1,KeywordPrinter.toString(k)), pos:punion(e1.pos,p2)});
-			case [{tok:Const(CIdent(f)), pos:p2} && p.max == p2.min]:
+			case [{tok:Const(CIdent(f)), pos:p2}]:
 				exprNext({expr:EField(e1,f), pos:punion(e1.pos,p2)});
 			case [{tok:Dollar(v), pos:p2}]:
 				exprNext({expr:EField(e1, "$" + v), pos:punion(e1.pos, p2)});
