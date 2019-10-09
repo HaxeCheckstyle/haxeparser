@@ -511,6 +511,9 @@ class Test extends haxe.unit.TestCase {
 
 		peq("@:enum abstract C(Int) {}", "@:enum abstract C(Int) {}");
 		peq("enum abstract C(Int) {}", "@:enum abstract C(Int) {}");
+
+		peq("abstract Any(Dynamic) {extern inline static function __cast<T>(value:T):Any return cast value;}",
+			"abstract Any(Dynamic) {extern inline static function __cast<T>(value:T):Any return cast value;}");
 	}
 
 	function testArrowFunctions() {
