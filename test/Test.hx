@@ -497,7 +497,7 @@ class Test extends haxe.unit.TestCase {
 	}
 
 	function testFinalFields() {
-		peq("class C { final a:Int = 99; }", "class C {final var a : Int = 99;}");
+		peq("class C { final a:Int = 99; }", "class C {final a : Int = 99;}");
         peq("class C { final static function main():Void {} }", "class C {static final function main():Void { }}");
         peq("class C { final function new() {} }", "class C {final function new() { }}");
 		peq("final class C {}", "final class C {}");
