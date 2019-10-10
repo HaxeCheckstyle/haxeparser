@@ -1124,6 +1124,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Kwd(KwdOverride)}, l = parseCfRights(false, apush(l, AOverride))]: l;
 			case [{tok:Kwd(KwdDynamic)}, l = parseCfRights(allowStatic, apush(l, ADynamic))]: l;
 			case [{tok:Kwd(KwdInline)}, l = parseCfRights(allowStatic, apush(l, AInline))]: l;
+			case [{tok:Kwd(KwdExtern)}, l = parseCfRights(allowStatic, apush(l, AExtern))]: l;
 			case _: l;
 		}
 	}

@@ -497,7 +497,7 @@ class Test extends haxe.unit.TestCase {
 	}
 
 	function testFinalFields() {
-		peq("class C { final a:Int = 99; }", "class C {final var a : Int = 99;}");
+		peq("class C { final a:Int = 99; }", "class C {final a : Int = 99;}");
         peq("class C { final static function main():Void {} }", "class C {static final function main():Void { }}");
         peq("class C { final function new() {} }", "class C {final function new() { }}");
 		peq("final class C {}", "final class C {}");
@@ -511,6 +511,9 @@ class Test extends haxe.unit.TestCase {
 
 		peq("@:enum abstract C(Int) {}", "@:enum abstract C(Int) {}");
 		peq("enum abstract C(Int) {}", "@:enum abstract C(Int) {}");
+
+		peq("abstract Any(Dynamic) {extern inline static function __cast<T>(value:T):Any return cast value;}",
+			"abstract Any(Dynamic) {extern inline static function __cast<T>(value:T):Any return cast value;}");
 	}
 
 	function testArrowFunctions() {
