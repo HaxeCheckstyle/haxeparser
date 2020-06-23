@@ -1,3 +1,5 @@
+package haxeparser;
+
 import haxeparser.Data;
 import haxe.macro.Expr;
 
