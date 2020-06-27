@@ -552,7 +552,7 @@ class Test extends haxe.unit.TestCase {
 		eeq("var @:a(b) c:D = e");
 	}
 
-	function testModuleStatics()  {
+	function testModuleStatics() {
 		peq('final finalInit = "finalInit";');
 		peq('final finalHintInit : String = "finalHintInit";');
 		peq('inline final inlineFinalInit = "inlineFinalInit";');
@@ -583,6 +583,15 @@ class Test extends haxe.unit.TestCase {
 		peq('private dynamic function privateDynamicFunc() return "privateDynamicFunc";');
 		peq('dynamic private function dynamicPrivateFunc() return "dynamicPrivateFunc";');
 		peq('@:isVar var prop(get, set) : String = "prop";function get_prop() return prop + "-get";function set_prop(value) return prop = value + "-set";');
+	}
+
+	function testimport() {
+		try {
+			parseFile('import haxe.macro.function.Test;');
+			assertTrue(true);
+		} catch (e:haxe.Exception) {
+			assertTrue(false);
+		}
 	}
 
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {

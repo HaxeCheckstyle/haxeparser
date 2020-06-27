@@ -462,6 +462,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Dollar(i), pos:p}]: { name: "$" + i, pos: p};
 			case [{tok:Kwd(KwdMacro), pos: p} && pack.length > 0]: { name: "macro", pos: p };
 			case [{tok:Kwd(KwdExtern), pos: p} && pack.length > 0]: { name: "extern", pos: p };
+			case [{tok:Kwd(KwdFunction), pos: p} && pack.length > 0]: { name: "function", pos: p };
 		}
 	}
 
@@ -470,6 +471,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Const(CIdent(i))} && isLowerIdent(i)]: i;
 			case [{tok:Kwd(KwdMacro)}]: "macro";
 			case [{tok:Kwd(KwdExtern)}]: "extern";
+			case [{tok:Kwd(KwdFunction)}]: "function";
 		}
 	}
 
@@ -542,7 +544,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseAbstract (doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag, pos:Position}>) {
+	function parseAbstract (doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag, s:StaticFlag, pos:Position}>) {
 		return switch stream {
 			case [{tok:Kwd(KwdAbstract), pos:p1}, name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = parseRepeat(parseAbstractRelations)]:
 				var fl = switch stream {
@@ -705,6 +707,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 							acc.push({pack:"macro",pos:p});
 						case [{tok:Kwd(KwdExtern), pos:p}]:
 							acc.push({pack:"extern",pos:p});
+						case [{tok:Kwd(KwdFunction), pos:p}]:
+							acc.push({pack:"function",pos:p});
 						case [{tok:Binop(OpMult)}, {tok:Semicolon, pos:p2}]:
 							return {
 								decl: EImport(acc, IAll),
@@ -1652,6 +1656,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				exprNext({expr:EField(e1,"macro"), pos:punion(e1.pos,p2)});
 			case [{tok:Kwd(KwdExtern), pos:p2}]:
 				exprNext({expr:EField(e1,"extern"), pos:punion(e1.pos,p2)});
+			case [{tok:Kwd(KwdFunction), pos:p2}]:
+				exprNext({expr:EField(e1,"function"), pos:punion(e1.pos,p2)});
 			case [{tok:Kwd(KwdNew), pos:p2}]:
 				exprNext({expr:EField(e1,"new"), pos:punion(e1.pos,p2)});
 			case [{tok:Kwd(k), pos:p2}]:
