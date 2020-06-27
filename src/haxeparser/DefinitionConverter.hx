@@ -12,6 +12,7 @@ class DefinitionConverter {
 			case EEnum(d): convertEnum(d);
 			case EAbstract(d): convertAbstract(d);
 			case ETypedef(d): convertTypedef(d);
+			case EStatic(s): convertStatic(s);
 			case _: throw 'Cannot convert $t';
 		}
 		td.pack = pack;
@@ -111,4 +112,25 @@ class DefinitionConverter {
 		def.fields = en.data.map(enumConstructorToClassField);
 		return def;
 	}
+
+	static function convertStatic(c:Definition<StaticFlag, FieldType>) {
+		var def = getGeneralDefinition(c);
+		var access:Array<Access>=[];
+		for (flag in c.flags) {
+			switch (flag) {
+				case SDynamic:
+					access.push(ADynamic);
+				case SFinal:
+					access.push(AFinal);
+				case SInline:
+					access.push(AInline);
+				case SMacro:
+					access.push(AMacro);
+				case SPrivate:
+					access.push(APrivate);
+			}
+		}
+		def.kind = TDField(c.data, access);
+		return def;
+	}	
 }

@@ -517,10 +517,10 @@ class Test extends haxe.unit.TestCase {
 	}
 
 	function testArrowFunctions() {
-		peq("class C { var f = () -> Math.random(); }", "class C {var f = function() return Math.random();}");
-		peq("class C { var f = (i) -> i * i + 2; }", "class C {var f = function(i) return i * i + 2;}");
-		peq("class C { var f = (i:Int) -> i * i + 2; }", "class C {var f = function(i:Int) return i * i + 2;}");
-		peq("class C { var f = (i:Int, j:Float) -> i * j + 2; }", "class C {var f = function(i:Int, j:Float) return i * j + 2;}");
+		peq("class C { var f = () -> Math.random(); }", "class C {var f = () -> return Math.random();}");
+		peq("class C { var f = (i) -> i * i + 2; }", "class C {var f = i -> return i * i + 2;}");
+		peq("class C { var f = (i:Int) -> i * i + 2; }", "class C {var f = (i:Int) -> return i * i + 2;}");
+		peq("class C { var f = (i:Int, j:Float) -> i * j + 2; }", "class C {var f = (i:Int, j:Float) -> return i * j + 2;}");
 		peq("class C { var f:Int -> Int; }", "class C {var f : Int -> Int;}");
 		peq("class C { var f:Int -> Float -> Int; }", "class C {var f : (Int, Float) -> Int;}");
 		peq("class C { var f:(i:Int) -> Int; }", "class C {var f : (i:Int) -> Int;}");
@@ -546,6 +546,52 @@ class Test extends haxe.unit.TestCase {
 		eeq("function memberAnon < A:{ x : Int } & { y : Float }> (v:A) { return v.x + v.y; }", "function memberAnon<A:({ var x : Int; } & { var y : Float; })>(v:A) {return v.x + v.y;}");
 		peq("private typedef C2 = {} & A;", "typedef C2 = { } & A;");
 		peq("private typedef D2 = A & B;", "typedef D2 = A & B;");
+	}
+
+	function testMetadataVarDecl() {
+		eeq("var @:a(b) c:D = e");
+	}
+
+	function testModuleStatics() {
+		peq('final finalInit = "finalInit";');
+		peq('final finalHintInit : String = "finalHintInit";');
+		peq('inline final inlineFinalInit = "inlineFinalInit";');
+		peq('inline final inlineFinalHintInit : String = "inlineFinalHintInit";');
+		peq('private final privateFinalInit = "privateFinalInit";');
+		peq('private final privateFinalHintInit : String = "privateFinalHintInit";');
+		peq('private inline final privateInlineFinalInit = "privateInlineFinalInit";');
+		peq('private inline final privateInlineFinalHintInit : String = "privateInlineFinalHintInit";');
+		peq('inline private final inlinePrivateFinalInit = "inlinePrivateFinalInit";');
+		peq('inline private final inlinePrivateFinalHintInit : String = "inlinePrivateFinalHintInit";');
+		peq('var varInit = "varInit";');
+		peq('var varInitHint : String = "varInitHint";');
+		peq('var varHint : String;');
+		peq('inline var inlineVarInit = "inlineVarInit";');
+		peq('inline var inlineVarInitHint : String = "inlineVarInitHint";');
+		peq('private var privateVarInit = "privateVarInit";');
+		peq('private var privateVarInitHint : String = "privateVarInitHint";');
+		peq('private var privateVarHint : String;');
+		peq('private inline var privateInlineVarInit = "privateInlineVarInit";');
+		peq('private inline var privateInlineVarInitHint : String = "privateInlineVarInitHint";');
+		peq('inline private var inlinePrivateVarInit = "inlinePrivateVarInit";');
+		peq('inline private var inlinePrivateVarInitHint : String = "inlinePrivateVarInitHint";');
+		peq('function func() return "func";');
+		peq('private function privateFunc() return "privateFunc";');
+		peq('private inline function privateInlineFunc() return "privateInlineFunc";');
+		peq('inline private function inlinePrivateFunc() return "inlinePrivateFunc";');
+		peq('dynamic function dynamicFunc() return "dynamicFunc";');
+		peq('private dynamic function privateDynamicFunc() return "privateDynamicFunc";');
+		peq('dynamic private function dynamicPrivateFunc() return "dynamicPrivateFunc";');
+		peq('@:isVar var prop(get, set) : String = "prop";function get_prop() return prop + "-get";function set_prop(value) return prop = value + "-set";');
+	}
+
+	function testimport() {
+		try {
+			parseFile('import haxe.macro.function.Test;');
+			assertTrue(true);
+		} catch (e:haxe.Exception) {
+			assertTrue(false);
+		}
 	}
 
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {

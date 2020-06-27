@@ -462,6 +462,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Dollar(i), pos:p}]: { name: "$" + i, pos: p};
 			case [{tok:Kwd(KwdMacro), pos: p} && pack.length > 0]: { name: "macro", pos: p };
 			case [{tok:Kwd(KwdExtern), pos: p} && pack.length > 0]: { name: "extern", pos: p };
+			case [{tok:Kwd(KwdFunction), pos: p} && pack.length > 0]: { name: "function", pos: p };
 		}
 	}
 
@@ -470,6 +471,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Const(CIdent(i))} && isLowerIdent(i)]: i;
 			case [{tok:Kwd(KwdMacro)}]: "macro";
 			case [{tok:Kwd(KwdExtern)}]: "extern";
+			case [{tok:Kwd(KwdFunction)}]: "function";
 		}
 	}
 
@@ -542,7 +544,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseAbstract (doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag}>) {
+	function parseAbstract (doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag, s:StaticFlag, pos:Position}>) {
 		return switch stream {
 			case [{tok:Kwd(KwdAbstract), pos:p1}, name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = parseRepeat(parseAbstractRelations)]:
 				var fl = switch stream {
@@ -572,6 +574,53 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				{decl: EUsing(t), pos: punion(p1, p2)};
 			case [doc = getDoc(), meta = parseMeta(), c = parseCommonFlags()]:
 				switch stream {
+					case [{tok:Kwd(KwdFunction), pos:p1}, name = parseFunName(), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma, parseFunParam), {tok:PClose}, t = parseTypeOpt()]:
+						var e = switch stream {
+							case [e = toplevelExpr(), _ = semicolon()]:
+								{ expr: e, pos: e.pos };
+							case [{tok: Semicolon,pos:p}]:
+								{ expr: null, pos: p}
+							case _: unexpected();
+						}
+						var f = {
+							params: pl,
+							args: al,
+							ret: t,
+							expr: e.expr
+						}
+						{decl: EStatic({
+							name: name,
+							doc: doc,
+							meta: meta,
+							params: pl,
+							flags: c.map(function(i) return i.s),
+							data: FFun(f)
+						}), pos: punion(p1, e.pos)};
+						case [{tok:Kwd(KwdVar), pos:p1}, name = dollarIdent()]:
+							switch stream {
+								case [{tok:POpen}, i1 = propertyIdent(), {tok:Comma}, i2 = propertyIdent(), {tok:PClose}]:
+									var t = parseTypeOpt();
+									var e = parseVarFieldAssignment();
+									{decl: EStatic({
+										name: name.name,
+										doc: doc,
+										meta: meta,
+										params: [],
+										flags: c.map(function(i) return i.s),
+										data: FProp(i1,i2,t,e.expr)
+									}), pos: punion(p1, e.pos)};
+		
+								case [t = parseTypeOpt()]:
+									var e = parseVarFieldAssignment();
+									{decl: EStatic({
+										name: name.name,
+										doc: doc,
+										meta: meta,
+										params: [],
+										flags: c.map(function(i) return i.s),
+										data: FVar(t,e.expr)
+									}), pos: punion(p1, e.pos)};
+							}
 					case [{tok:Kwd(KwdEnum), pos:p1}]:
 						switch stream {
 							case [a = parseAbstract(doc, [{name: ":enum", params: [], pos: p1}].concat(meta), c)]:
@@ -611,6 +660,16 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 					case [a = parseAbstract(doc, meta, c)]:
 						{decl: a.decl, pos: a.pos};
+
+					case [name = dollarIdent(), t = parseTypeOpt(), e = parseVarFieldAssignment()]:
+						{decl: EStatic({
+							name: name.name,
+							doc: doc,
+							meta: meta,
+							params: [],
+							flags: c.map(function(i) return i.s),
+							data: FVar(t,e.expr)
+						}), pos: punion(c[0].pos, e.pos)};
 				}
 		}
 	}
@@ -648,6 +707,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 							acc.push({pack:"macro",pos:p});
 						case [{tok:Kwd(KwdExtern), pos:p}]:
 							acc.push({pack:"extern",pos:p});
+						case [{tok:Kwd(KwdFunction), pos:p}]:
+							acc.push({pack:"function",pos:p});
 						case [{tok:Binop(OpMult)}, {tok:Semicolon, pos:p2}]:
 							return {
 								decl: EImport(acc, IAll),
@@ -705,11 +766,14 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return parseRepeat(parseClassField);
 	}
 
-	function parseCommonFlags():Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag}> {
+	function parseCommonFlags():Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag, s:StaticFlag, pos:Position}> {
 		return switch stream {
-			case [{tok:Kwd(KwdPrivate)}, l = parseCommonFlags()]: apush(l, {c:HPrivate, e:EPrivate, a:APrivAbstract});
-			case [{tok:Kwd(KwdExtern)}, l = parseCommonFlags()]: apush(l, {c:HExtern, e:EExtern, a:AExtern});
-			case [{tok:Kwd(KwdFinal)}, l = parseCommonFlags()]: apush(l, {c:HFinal, e:null, a:null});
+			case [{tok:Kwd(KwdPrivate), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HPrivate, e:EPrivate, a:APrivAbstract, s:SPrivate, pos:p});
+			case [{tok:Kwd(KwdExtern), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HExtern, e:EExtern, a:AExtern, s:null, pos:p});
+			case [{tok:Kwd(KwdFinal), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HFinal, e:null, a:null, s:SFinal, pos:p});
+			case [{tok:Kwd(KwdInline), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:SInline, pos:p});
+			case [{tok:Kwd(KwdDynamic), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:SDynamic, pos:p});
+			case [{tok:Kwd(KwdMacro), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:SMacro, pos:p});
 			case _: [];
 		}
 	}
@@ -1283,11 +1347,19 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseVarDecl(isFinal:Bool) {
 		return switch stream {
+			#if (haxe >= version("4.2.0-rc.1"))
+			case [meta = parseMeta(), id = dollarIdent(), t = parseTypeOpt()]:
+				switch stream {
+					case [{tok:Binop(OpAssign)}, e = expr()]: { name: id.name, type: t, expr: e, isFinal: isFinal, meta: meta};
+					case _: { name: id.name, type:t, expr: null, isFinal: isFinal, meta: meta};
+				}
+			#else
 			case [id = dollarIdent(), t = parseTypeOpt()]:
 				switch stream {
 					case [{tok:Binop(OpAssign)}, e = expr()]: { name: id.name, type: t, expr: e, isFinal: isFinal};
 					case _: { name: id.name, type:t, expr: null, isFinal: isFinal};
 				}
+			#end
 		}
 	}
 
@@ -1592,6 +1664,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				exprNext({expr:EField(e1,"macro"), pos:punion(e1.pos,p2)});
 			case [{tok:Kwd(KwdExtern), pos:p2}]:
 				exprNext({expr:EField(e1,"extern"), pos:punion(e1.pos,p2)});
+			case [{tok:Kwd(KwdFunction), pos:p2}]:
+				exprNext({expr:EField(e1,"function"), pos:punion(e1.pos,p2)});
 			case [{tok:Kwd(KwdNew), pos:p2}]:
 				exprNext({expr:EField(e1,"new"), pos:punion(e1.pos,p2)});
 			case [{tok:Kwd(k), pos:p2}]:
