@@ -197,9 +197,10 @@ typedef Definition<A,B> = {
 enum TypeDef {
 	EClass(d:Definition<ClassFlag, Array<Field>>);
 	EEnum(d:Definition<EnumFlag, Array<EnumConstructor>>);
-	EAbstract(a:Definition<AbstractFlag, Array<Field>>);
-	EImport(sl:Array<{pack:String, pos:Position}>, mode:ImportMode);
 	ETypedef(d:Definition<EnumFlag, ComplexType>);
+	EAbstract(a:Definition<AbstractFlag, Array<Field>>);
+	EStatic(s:Definition<StaticFlag, FieldType>);
+	EImport(sl:Array<{pack:String, pos:Position}>, mode:ImportMode);
 	EUsing(path:TypePath);
 }
 
@@ -228,6 +229,14 @@ enum AbstractFlag {
 enum EnumFlag {
 	EPrivate;
 	EExtern;
+}
+
+enum StaticFlag {
+	SDynamic;
+	SFinal;
+	SInline;
+	SMacro;
+	SPrivate;
 }
 
 enum ImportMode {

@@ -552,6 +552,39 @@ class Test extends haxe.unit.TestCase {
 		eeq("var @:a(b) c:D = e");
 	}
 
+	function testModuleStatics()  {
+		peq('final finalInit = "finalInit";');
+		peq('final finalHintInit : String = "finalHintInit";');
+		peq('inline final inlineFinalInit = "inlineFinalInit";');
+		peq('inline final inlineFinalHintInit : String = "inlineFinalHintInit";');
+		peq('private final privateFinalInit = "privateFinalInit";');
+		peq('private final privateFinalHintInit : String = "privateFinalHintInit";');
+		peq('private inline final privateInlineFinalInit = "privateInlineFinalInit";');
+		peq('private inline final privateInlineFinalHintInit : String = "privateInlineFinalHintInit";');
+		peq('inline private final inlinePrivateFinalInit = "inlinePrivateFinalInit";');
+		peq('inline private final inlinePrivateFinalHintInit : String = "inlinePrivateFinalHintInit";');
+		peq('var varInit = "varInit";');
+		peq('var varInitHint : String = "varInitHint";');
+		peq('var varHint : String;');
+		peq('inline var inlineVarInit = "inlineVarInit";');
+		peq('inline var inlineVarInitHint : String = "inlineVarInitHint";');
+		peq('private var privateVarInit = "privateVarInit";');
+		peq('private var privateVarInitHint : String = "privateVarInitHint";');
+		peq('private var privateVarHint : String;');
+		peq('private inline var privateInlineVarInit = "privateInlineVarInit";');
+		peq('private inline var privateInlineVarInitHint : String = "privateInlineVarInitHint";');
+		peq('inline private var inlinePrivateVarInit = "inlinePrivateVarInit";');
+		peq('inline private var inlinePrivateVarInitHint : String = "inlinePrivateVarInitHint";');
+		peq('function func() return "func";');
+		peq('private function privateFunc() return "privateFunc";');
+		peq('private inline function privateInlineFunc() return "privateInlineFunc";');
+		peq('inline private function inlinePrivateFunc() return "inlinePrivateFunc";');
+		peq('dynamic function dynamicFunc() return "dynamicFunc";');
+		peq('private dynamic function privateDynamicFunc() return "privateDynamicFunc";');
+		peq('dynamic private function dynamicPrivateFunc() return "dynamicPrivateFunc";');
+		peq('@:isVar var prop(get, set) : String = "prop";function get_prop() return prop + "-get";function set_prop(value) return prop = value + "-set";');
+	}
+
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();
