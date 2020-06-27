@@ -548,6 +548,10 @@ class Test extends haxe.unit.TestCase {
 		peq("private typedef D2 = A & B;", "typedef D2 = A & B;");
 	}
 
+	function testMetadataVarDecl() {
+		eeq("var @:a(b) c:D = e");
+	}
+
 	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		var expr = parser.expr();
