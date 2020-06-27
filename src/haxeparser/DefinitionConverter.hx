@@ -113,7 +113,6 @@ class DefinitionConverter {
 		return def;
 	}
 
-
 	static function convertStatic(c:Definition<StaticFlag, FieldType>) {
 		var def = getGeneralDefinition(c);
 		var access:Array<Access>=[];

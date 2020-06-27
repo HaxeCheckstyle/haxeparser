@@ -1347,11 +1347,19 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseVarDecl(isFinal:Bool) {
 		return switch stream {
+			#if (haxe >= version("4.2.0-rc.1"))
 			case [meta = parseMeta(), id = dollarIdent(), t = parseTypeOpt()]:
 				switch stream {
 					case [{tok:Binop(OpAssign)}, e = expr()]: { name: id.name, type: t, expr: e, isFinal: isFinal, meta: meta};
 					case _: { name: id.name, type:t, expr: null, isFinal: isFinal, meta: meta};
 				}
+			#else
+			case [id = dollarIdent(), t = parseTypeOpt()]:
+				switch stream {
+					case [{tok:Binop(OpAssign)}, e = expr()]: { name: id.name, type: t, expr: e, isFinal: isFinal};
+					case _: { name: id.name, type:t, expr: null, isFinal: isFinal};
+				}
+			#end
 		}
 	}
 
