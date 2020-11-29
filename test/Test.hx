@@ -354,7 +354,7 @@ class Test extends haxe.unit.TestCase {
 		eeq("#if (target.sys) 1 #else 2 #end", "2");
 		eeq("#if target.sys 1 #elseif target.php 2 #else 3 #end", "3");
 		eeq("#if target.sys 1 #elseif !target.php 2 #else 3 #end", "2");
-		
+
 		perr("#if true class C{}");
 		perr("#if false class C{}");
 		perr("#if true class C{} #else class C{}");
@@ -489,11 +489,11 @@ class Test extends haxe.unit.TestCase {
 	}
 
 	function testIssue32() {
-		peq("class C { static function main() '{${printClassRec(c,'',s)}}';}", "class C {static function main() \"{${printClassRec(c,\\'\\',s)}}\";}");
+		peq("class C { static function main() '{${printClassRec(c,'',s)}}';}", "class C {static function main() '{${printClassRec(c,\\'\\',s)}}';}");
 	}
 
 	function testMultilineStringInterpolation() {
-		peq("class C { static function main() '{${\nprintClassRec(c,'',s)\n}}';}", "class C {static function main() \"{${\\nprintClassRec(c,\\'\\',s)\\n}}\";\n}");
+		peq("class C { static function main() '{${\nprintClassRec(c,'',s)\n}}';}", "class C {static function main() '{${\\nprintClassRec(c,\\'\\',s)\\n}}';\n}");
 	}
 
 	function testFinalFields() {
@@ -535,7 +535,8 @@ class Test extends haxe.unit.TestCase {
 	}
 
 	function testIs() {
-		eeq("('' is String)", 'Std.is("", String)');
+		eeq("('' is String)", "Std.is('', String)");
+		eeq('("" is String)', 'Std.is("", String)');
 		eeq("([] is String)", "Std.is([], String)");
 		eeq("(cast unit.MyEnum.A is Array)", "Std.is(cast unit.MyEnum.A, Array)");
 		eeq("(map is haxe.ds.StringMap)", "Std.is(map, ds.haxe.StringMap)");

@@ -120,14 +120,14 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			buf = new StringBuf();
 			var pmin = lexer.curPos();
 			var pmax = try lexer.token(string) catch (e:haxe.io.Eof) throw new LexerError(UnterminatedString, mkPos(pmin));
-			var token = mk(lexer, Const(CString(unescape(buf.toString(), mkPos(pmin)))));
+			var token = mk(lexer, Const(CString(unescape(buf.toString(), mkPos(pmin)), DoubleQuotes)));
 			token.pos.min = pmin.pmin; token;
 		},
 		"'" => {
 			buf = new StringBuf();
 			var pmin = lexer.curPos();
 			var pmax = try lexer.token(string2) catch (e:haxe.io.Eof) throw new LexerError(UnterminatedString, mkPos(pmin));
-			var token = mk(lexer, Const(CString(unescape(buf.toString(), mkPos(pmin)))));
+			var token = mk(lexer, Const(CString(unescape(buf.toString(), mkPos(pmin)), SingleQuotes)));
 			token.pos.min = pmin.pmin; token;
 		},
 		'~/' => {
