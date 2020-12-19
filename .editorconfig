@@ -12,6 +12,9 @@ trim_trailing_whitespace = true
 end_of_line = crlf
 charset = utf-8
 
+[HaxeParser.hx]
+end_of_line = lf
+
 [*.md]
 indent_style = space
 indent_size = 2
