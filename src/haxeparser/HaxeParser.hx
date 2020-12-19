@@ -965,7 +965,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Question}, t = parseComplexTypeInner(allowNamed)]:
 				TOptional(t);
 			#if (haxe >= version("4.2.0-rc.1"))
-			case [{tok:Unop(OpSpread)}, t = parseComplexTypeInner(allowNamed)]:
+			case [{tok:Binop(OpInterval)}, t = parseComplexTypeInner(allowNamed)]:
 				var hint = switch (t) {
 					case TNamed(_, t):
 						t;
@@ -1248,10 +1248,10 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	function parseFunParam() {
 		var meta = parseMeta();
 		return switch stream {
-			case [{tok:Question}, id = ident(), t = parseTypeOpt(), c = parseFunParamValue()]: { name: id.name, opt: true, type: t, value: c, meta: meta };
-			case [id = ident(), t = parseTypeOpt(), c = parseFunParamValue()]: { name: id.name, opt: false, type: t, value: c, meta: meta };
+			case [{tok:Question}, id = dollarIdent(), t = parseTypeOpt(), c = parseFunParamValue()]: { name: id.name, opt: true, type: t, value: c, meta: meta };
+			case [id = dollarIdent(), t = parseTypeOpt(), c = parseFunParamValue()]: { name: id.name, opt: false, type: t, value: c, meta: meta };
 			#if (haxe >= version("4.2.0-rc.1"))
-			case [{tok:Unop(OpSpread)}, id = ident(), t = parseTypeOpt(), c = parseFunParamValue()]:
+			case [{tok:Binop(OpInterval)}, id = dollarIdent(), t = parseTypeOpt(), c = parseFunParamValue()]:
 				var t = TPath({pack: ["haxe"], name: "Rest", params: [TPType(t)]});
 				{ name: id.name, opt: false, type: t, value: c, meta: meta };
 			#end
@@ -1610,6 +1610,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:BkOpen, pos:p1}, l = parseArrayDecl(), {tok:BkClose, pos:p2}]: exprNext({expr: EArrayDecl(l), pos:punion(p1,p2)});
 			case [{tok:Kwd(KwdFunction), pos:p1}, e = parseFunction(p1, false)]: e;
 			case [{tok:Unop(op), pos:p1}, e = expr()]: makeUnop(op,e,p1);
+			case [{tok:Binop(OpInterval), pos:p1}, e = expr()]: makeUnop(OpSpread,e,p1);
 			case [{tok:Binop(OpSub), pos:p1}, e = expr()]:
 				function neg(s:String) {
 					return s.charCodeAt(0) == '-'.code
@@ -1704,7 +1705,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Binop(op)}, e2 = expr()]:
 				makeBinop(op,e1,e2);
 			#if (haxe >= version("4.2.0-rc.1"))
-			case [{tok:Unop(OpSpread)}, e2 = expr()]:
+			case [{tok:Binop(OpInterval)}, e2 = expr()]:
 				makeBinop(OpInterval,e1,e2);
 			#end
 			case [{tok:Unop(op), pos:p} && isPostfix(e1,op)]:

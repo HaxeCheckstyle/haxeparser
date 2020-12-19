@@ -592,6 +592,10 @@ class Test extends haxe.unit.TestCase {
 		peq('dynamic private function dynamicPrivateFunc() return "dynamicPrivateFunc";');
 		peq('@:isVar var prop(get, set) : String = "prop";function get_prop() return prop + "-get";function set_prop(value) return prop = value + "-set";');
 		peq('overload function func() return "func";');
+		peq("function func(...r:Int){}", "function func(r:haxe.Rest<Int>) { }");
+		peq("function func(a:Int, ...r:Int){}", "function func(a:Int, r:haxe.Rest<Int>) { }");
+		peq("function func(a:Int, ...r:Array<Int>){}", "function func(a:Int, r:haxe.Rest<Array<Int>>) { }");
+		peq("function methodWithRest(rest:Rest<Int>):Rest<Int> {return super.methodWithRest(...rest.append(999));}");
 	}
 
 	function testimport() {
