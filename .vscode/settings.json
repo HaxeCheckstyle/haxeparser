@@ -1,11 +1,17 @@
 {
     "[haxe]": {
-        "editor.formatOnSave": false
+        "editor.formatOnSave": false,
+        "editor.formatOnPaste": false
     },
     "haxeTestExplorer.testCommand": [
         "${haxe}",
         "build.hxml",
         "-lib",
         "test-adapter"
-    ]
+    ],
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": false,
+        "source.sortImports": false
+    },
+    "haxe.enableExtendedIndentation": true
 }
