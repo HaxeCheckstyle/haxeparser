@@ -40,8 +40,8 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 		return switch stream {
 			case [{tok:Const(CIdent(t)), pos:p}]:
 				parseMacroIdent(allowOp, t, p);
-			case [{tok:Const(CString(s)), pos:p}]:
-				{tk:None, expr:{expr:EConst(CString(s)), pos:p}};
+			case [{tok:Const(CString(s, qs)), pos:p}]:
+				{tk:None, expr:{expr:EConst(CString(s, qs)), pos:p}};
 			case [{tok:Const(CInt(s)), pos:p}]:
 				{tk:None, expr:{expr:EConst(CInt(s)), pos:p}};
 			case [{tok:Const(CFloat(s)), pos:p}]:
@@ -305,14 +305,17 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	static function isPostfix(e:Expr, u:Unop) {
 		return switch (u) {
-			case OpIncrement | OpDecrement:
+			case OpIncrement | OpDecrement | OpNot:
 				switch(e.expr) {
 					case EConst(_) | EField(_) | EArray(_):
 						true;
 					case _:
 						false;
 				}
-			case OpNot | OpNeg | OpNegBits: false;
+			case OpNeg | OpNegBits: false;
+			#if (haxe >= version("4.2.0-rc.1"))
+			case OpSpread: false;
+			#end
 		}
 	}
 
@@ -320,6 +323,9 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch(u) {
 			case OpIncrement | OpDecrement: true;
 			case OpNot | OpNeg | OpNegBits: true;
+			#if (haxe >= version("4.2.0-rc.1"))
+			case OpSpread: true;
+			#end
 		}
 	}
 
@@ -544,9 +550,9 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseAbstract (doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag, s:StaticFlag, pos:Position}>) {
+	function parseAbstract (doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag, s:StaticFlag, pos:Position}>, p1) {
 		return switch stream {
-			case [{tok:Kwd(KwdAbstract), pos:p1}, name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = parseRepeat(parseAbstractRelations)]:
+			case [name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = parseRepeat(parseAbstractRelations)]:
 				var fl = switch stream {
 					case [{tok:BrOpen}, fl = parseClassFields(false, p1)]:
 						fl;
@@ -564,6 +570,24 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					data: fl.fields
 				}), pos: punion(p1, fl.pos)};
 		}
+	}
+
+	function parseClassContent(doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag, s:StaticFlag, pos:Position}>, n, p1) {
+		var name = typeName();
+		var tl = parseConstraintParams();
+		var hl = parseRepeat(parseClassHerit);
+		var fl = switch stream {
+			case [{tok:BrOpen}, fl = parseClassFields(false, p1)]:
+				fl;
+		}
+		return {decl: EClass({
+				name: name,
+				doc: doc,
+				meta: meta,
+				params: tl,
+				flags: flags.map(function(i) return i.c).concat(n).concat(hl),
+				data: fl.fields
+			}), pos: punion(p1,fl.pos)};
 	}
 
 	function parseTypeDecl() {
@@ -609,7 +633,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 										flags: c.map(function(i) return i.s),
 										data: FProp(i1,i2,t,e.expr)
 									}), pos: punion(p1, e.pos)};
-		
+
 								case [t = parseTypeOpt()]:
 									var e = parseVarFieldAssignment();
 									{decl: EStatic({
@@ -623,7 +647,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 							}
 					case [{tok:Kwd(KwdEnum), pos:p1}]:
 						switch stream {
-							case [a = parseAbstract(doc, [{name: ":enum", params: [], pos: p1}].concat(meta), c)]:
+							case [{tok:Kwd(KwdAbstract), pos:p1}, a = parseAbstract(doc, [{name: ":enum", params: [], pos: p1}].concat(meta), c, p1)]:
 								{ decl: a.decl, pos: punion(p1, a.pos)};
 							case [name = typeName(), tl = parseConstraintParams(), {tok:BrOpen}, l = parseRepeat(parseEnum), {tok:BrClose, pos: p2}]:
 								{decl: EEnum({
@@ -635,15 +659,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 									data: l
 								}), pos: punion(p1,p2)};
 						}
-					case [flags = parseClassFlags(), name = typeName(), tl = parseConstraintParams(), hl = parseRepeat(parseClassHerit), {tok:BrOpen}, fl = parseClassFields(false,flags.pos)]:
-						{decl: EClass({
-							name: name,
-							doc: doc,
-							meta: meta,
-							params: tl,
-							flags: c.map(function(i) return i.c).concat(flags.flags).concat(hl),
-							data: fl.fields
-						}), pos: punion(flags.pos,fl.pos)};
+					case [flags = parseClassFlags()]:
+						parseClassContent(doc, meta, c, flags.flags, flags.pos);
 					case [{tok: Kwd(KwdTypedef), pos: p1}, name = typeName(), tl = parseConstraintParams(), {tok:Binop(OpAssign), pos: p2}, t = parseComplexType()]:
 						switch stream {
 							case [{tok:Semicolon}]:
@@ -658,8 +675,18 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 							data: t
 						}), pos: punion(p1,p2)};
 
-					case [a = parseAbstract(doc, meta, c)]:
-						{decl: a.decl, pos: a.pos};
+					case [{tok: Kwd(KwdAbstract), pos:p1}]:
+						switch stream {
+							case [a = parseAbstract(doc, meta, c, p1)]:
+								{decl: a.decl, pos: a.pos};
+							case _:
+								var c2 = parseCommonFlags();
+								switch stream {
+									case [flags = parseClassFlags()]:
+										parseClassContent(doc, meta, c.concat(c2), apush(flags.flags, HAbstract), p1);
+									case _:
+								}
+						}
 
 					case [name = dollarIdent(), t = parseTypeOpt(), e = parseVarFieldAssignment()]:
 						{decl: EStatic({
@@ -771,9 +798,13 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Kwd(KwdPrivate), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HPrivate, e:EPrivate, a:APrivAbstract, s:SPrivate, pos:p});
 			case [{tok:Kwd(KwdExtern), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HExtern, e:EExtern, a:AExtern, s:null, pos:p});
 			case [{tok:Kwd(KwdFinal), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HFinal, e:null, a:null, s:SFinal, pos:p});
-			case [{tok:Kwd(KwdInline), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:SInline, pos:p});
-			case [{tok:Kwd(KwdDynamic), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:SDynamic, pos:p});
 			case [{tok:Kwd(KwdMacro), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:SMacro, pos:p});
+			case [{tok:Kwd(KwdDynamic), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:SDynamic, pos:p});
+			case [{tok:Kwd(KwdInline), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:SInline, pos:p});
+			// included for completeness, there are no Public / Static flags
+			// case [{tok:Kwd(KwdPublic), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:null, pos:p});
+			// case [{tok:Kwd(KwdStatic), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:null, pos:p});
+			case [{tok:Kwd(KwdOverload), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:SOverload, pos:p});
 			case _: [];
 		}
 	}
@@ -933,6 +964,16 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				}
 			case [{tok:Question}, t = parseComplexTypeInner(allowNamed)]:
 				TOptional(t);
+			#if (haxe >= version("4.2.0-rc.1"))
+			case [{tok:Unop(OpSpread)}, t = parseComplexTypeInner(allowNamed)]:
+				var hint = switch (t) {
+					case TNamed(_, t):
+						t;
+					case _:
+						t;
+				}
+				TPath({pack: ["haxe"], name: "Rest", params: [TPType(hint)]});
+			#end
 			case [n = dollarIdent()]:
 				switch stream {
 					case [{tok:DblDot}, t = parseComplexType()] if (allowNamed):
@@ -1189,6 +1230,10 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Kwd(KwdDynamic)}, l = parseCfRights(allowStatic, apush(l, ADynamic))]: l;
 			case [{tok:Kwd(KwdInline)}, l = parseCfRights(allowStatic, apush(l, AInline))]: l;
 			case [{tok:Kwd(KwdExtern)}, l = parseCfRights(allowStatic, apush(l, AExtern))]: l;
+			#if (haxe >= version("4.2.0-rc.1"))
+			case [{tok:Kwd(KwdAbstract)} && allowStatic, l = parseCfRights(false, apush(l, AAbstract))]: l;
+			case [{tok:Kwd(KwdOverload)}, l = parseCfRights(allowStatic, apush(l, AOverload))]: l;
+			#end
 			case _: l;
 		}
 	}
@@ -1205,7 +1250,11 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch stream {
 			case [{tok:Question}, id = ident(), t = parseTypeOpt(), c = parseFunParamValue()]: { name: id.name, opt: true, type: t, value: c, meta: meta };
 			case [id = ident(), t = parseTypeOpt(), c = parseFunParamValue()]: { name: id.name, opt: false, type: t, value: c, meta: meta };
-
+			#if (haxe >= version("4.2.0-rc.1"))
+			case [{tok:Unop(OpSpread)}, id = ident(), t = parseTypeOpt(), c = parseFunParamValue()]:
+				var t = TPath({pack: ["haxe"], name: "Rest", params: [TPType(t)]});
+				{ name: id.name, opt: false, type: t, value: c, meta: meta };
+			#end
 		}
 	}
 
@@ -1262,7 +1311,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	function block1() {
 		return switch stream {
 			case [{tok:Const(CIdent(name)), pos:p}]: block2(name, Unquoted, CIdent(name), p);
-			case [{tok:Const(CString(name)), pos:p}]: block2(quoteIdent(name), Quoted, CString(name), p);
+			case [{tok:Const(CString(name, qs)), pos:p}]: block2(quoteIdent(name), Quoted, CString(name, qs), p);
 			case [b = block([])]: EBlock(b);
 		}
 	}
@@ -1314,7 +1363,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					switch stream {
 						case [id = ident(), {tok:DblDot}, e = expr()]:
 							acc.push({field:id.name, expr: e, quotes: Unquoted});
-						case [{tok:Const(CString(name))}, {tok:DblDot}, e = expr()]:
+						case [{tok:Const(CString(name, _))}, {tok:DblDot}, e = expr()]:
 							//apush(l,{field:quoteIdent(name), expr: e});
 							acc.push({field:quoteIdent(name), expr: e, quotes: Quoted});
 						case _:
@@ -1492,9 +1541,11 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 								var pu = punion(p1, p2);
 								var ep = {expr: EParenthesis({expr: ECheckType(e, t), pos: pu}), pos: pu};
 								exprNext({expr: ECast(ep, null), pos: punion(p1, pu)});
+							#if (haxe < version("4.2.0-rc.1"))
 							case [{tok:Const(CIdent("is")), pos:p_is}, t = parseTypePath(), {tok:PClose, pos:p2}]:
 								var e_is = makeIs(e, t, punion(p1, p2), p_is);
 								exprNext({expr:ECast(e_is, null), pos:punion(p1, e_is.pos)});
+							#end
 							case [{tok:PClose, pos:p2}]:
 								var ep = exprNext({expr: EParenthesis(e), pos: punion(pp, p2)});
 								exprNext({expr:ECast(ep,null),pos:punion(p1,ep.pos)});
@@ -1549,8 +1600,10 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 										}
 								}
 							}
+							#if (haxe < version("4.2.0-rc.1"))
 							case [{tok:Const(CIdent("is")), pos:p_is}, t = parseTypePath(), {tok:PClose, pos:p2}]:
 								exprNext(makeIs(e, t, punion(p1, p2), p_is));
+							#end
 							case _: unexpected();
 						}
 				}
@@ -1610,6 +1663,12 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function exprNext(e1:Expr):Expr {
 		return switch stream {
+			case [{tok:BrOpen, pos:p1} && isDollarIdent(e1), eparam = expr(), {tok:BrClose,pos:p2}]:
+				switch (e1.expr) {
+					case EConst(CIdent(n)):
+						exprNext({expr: EMeta({name:n, params:[], pos:e1.pos},eparam), pos:punion(p1,p2)});
+					case _: throw false;
+				}
 			case [{tok:Dot, pos:p}, e = parseField(e1, p)]: e;
 			case [{tok:POpen, pos:_}]:
 				switch stream {
@@ -1644,16 +1703,21 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				}
 			case [{tok:Binop(op)}, e2 = expr()]:
 				makeBinop(op,e1,e2);
-			case [{tok:Question}, e2 = expr(), {tok:DblDot}, e3 = expr()]:
-				{ expr: ETernary(e1,e2,e3), pos: punion(e1.pos, e3.pos)};
+			#if (haxe >= version("4.2.0-rc.1"))
+			case [{tok:Unop(OpSpread)}, e2 = expr()]:
+				makeBinop(OpInterval,e1,e2);
+			#end
 			case [{tok:Unop(op), pos:p} && isPostfix(e1,op)]:
 				exprNext({expr:EUnop(op,true,e1), pos:punion(e1.pos, p)});
-			case [{tok:BrOpen, pos:p1} && isDollarIdent(e1), eparam = expr(), {tok:BrClose,pos:p2}]:
-				switch (e1.expr) {
-					case EConst(CIdent(n)):
-						exprNext({expr: EMeta({name:n, params:[], pos:e1.pos},eparam), pos:punion(p1,p2)});
-					case _: throw false;
-				}
+			case [{tok:Question}, e2 = expr(), {tok:DblDot}, e3 = expr()]:
+				{ expr: ETernary(e1,e2,e3), pos: punion(e1.pos, e3.pos)};
+			#if (haxe >= version("4.2.0-rc.1"))
+			// included for completeness, already handled by Binop case above
+			// case [{tok:Kwd(KwdIn)}, e2 = expr()]:
+			// 	makeBinop(OpIn,e1,e2);
+			case [{tok:Const(CIdent("is"))}, t = parseComplexType()]:
+				exprNext({expr: EIs(e1,t), pos: e1.pos});
+			#end
 			case _: e1;
 		}
 	}
@@ -1957,15 +2021,19 @@ private class Reificator{
 
 	function toAccess(a:Access, p:Position):Expr {
 		var n = switch(a){
+			case APublic:   "APublic";
+			case APrivate:  "APrivate";
+			case AStatic:   "AStatic";
+			case AOverride: "AOverride";
+			case ADynamic:  "ADynamic";
+			case AInline:   "AInline";
+			case AMacro:    "AMacro";
 			case AFinal:     "AFinal";
-			case APublic :   "APublic";
-			case APrivate :  "APrivate";
-			case AStatic :   "AStatic";
-			case AOverride : "AOverride";
-			case ADynamic :  "ADynamic";
-			case AInline :   "AInline";
-			case AMacro :    "AMacro";
-			case AExtern :   "AExtern";
+			case AExtern:   "AExtern";
+			#if (haxe >= version("4.2.0-rc.1"))
+			case AAbstract:    "AAbstract";
+			case AOverload:   "AOverload";
+			#end
 		}
 		return mkEnum("Access", n, [], p);
 	}
@@ -2028,7 +2096,13 @@ private class Reificator{
 		else
 			return toObj([{field:"file", expr:file, quotes:Unquoted}, {field:"min", expr:pmin, quotes:Unquoted}, {field:"max", expr:pmax, quotes:Unquoted}], p);
 	}
-
+	function toEncPos(p:Position):Expr {
+		if (curPos != null) return curPos;
+		if (inMacro)
+			return toPos(p);
+		else
+			return {expr:ECall({expr:EField({expr:EField({expr:EField({expr:EConst(CIdent("haxe")), pos:p}, "macro"), pos:p}, "Context"), pos:p}, "makePosition"), pos:p}, [toPos(p)]), pos:p};
+	}
 	function toExprArray(a:Array<Expr>, p:Position):Expr {
 		if (a.length > 0){
 			switch(a[0].expr){
@@ -2083,6 +2157,9 @@ private class Reificator{
 					case OpNot: ops = "OpNot";
 					case OpNeg: ops = "OpNeg";
 					case OpNegBits: ops = "OpNegBits";
+					#if (haxe >= version("4.2.0-rc.1"))
+					case OpSpread: ops = "OpSpread";
+					#end
 				}
 				var op2 = mkEnum("Unop", ops, [], p);
 				expr("EUnop", [op2, toBool(isPostfix, p), loop(e)]);
@@ -2091,10 +2168,18 @@ private class Reificator{
 					var name = vv.name;
 					var type = vv.type;
 					var expr = vv.expr;
+					var isFinal = vv.isFinal;
+					#if (haxe >= version("4.2.0-rc.1"))
+					var meta = vv.meta;
+					#end
 					var fields:Array<{field:String, expr:Expr, quotes:QuoteStatus}> = [
 						{field:"name", expr:toString(name, p), quotes:Unquoted},
 						{field:"type", expr:toOpt(toCType, type, p), quotes:Unquoted},
-						{field:"expr", expr:toOpt(toExpr, expr, p), quotes:Unquoted}
+						{field:"expr", expr:toOpt(toExpr, expr, p), quotes:Unquoted},
+						{field:"isFinal", expr:toBool(isFinal, p), quotes:Unquoted},
+						#if (haxe >= version("4.2.0-rc.1"))
+						{field:"meta", expr:toMeta(meta, p), quotes:Unquoted}
+						#end
 					];
 					return toObj(fields, p);
 				}, vl, p)]);
@@ -2146,6 +2231,10 @@ private class Reificator{
 				expr("EThrow", [loop(e)]);
 			case ECast(e, ct):
 				expr("ECast", [loop(e), toOpt(toCType, ct, p)]);
+			#if (haxe >= version("4.2.0-rc.1"))
+			case EIs(e, ct):
+				expr("EIs", [loop(e), toCType(ct, p)]);
+			#end
 			case EDisplay(e, dk):
 				expr("EDisplay", [loop(e), toDisplaykind(dk, p)]);
 			case EDisplayNew(t):
@@ -2237,6 +2326,7 @@ private class Reificator{
 		return toObj([
 			{field:"name", expr:toString(t.name,p), quotes:Unquoted},
 			{field:"params", expr:{expr:EArrayDecl(params),pos:p}, quotes:Unquoted},
+			{field:"meta", expr:toMeta(t.meta,p), quotes:Unquoted},
 			{field:"constraints", expr:{expr:EArrayDecl(constraints),pos:p}, quotes:Unquoted}
 		],p);
 	}
@@ -2250,6 +2340,7 @@ private class Reificator{
 			var impl = [];
 			var interf = false;
 			var isFinal = false;
+			var isAbstract = false;
 
 			for (f in d.flags){
 				switch(f){
@@ -2258,6 +2349,7 @@ private class Reificator{
 					case HInterface: interf = true;
 					case HExtends(t): ext = toTPath(t, td.pos);
 					case HImplements(i): impl.push(toTPath(i, td.pos));
+					case HAbstract: isAbstract = true;
 				}
 			}
 
@@ -2286,6 +2378,7 @@ private class Reificator{
 			kindParams.push({expr:EArrayDecl(impl),pos:p});
 			kindParams.push(toBool(interf, p));
 			kindParams.push(toBool(isFinal, p));
+			kindParams.push(toBool(isAbstract, p));
 
 			var fields = [];
 			for (d in d.data){

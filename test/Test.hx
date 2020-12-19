@@ -300,6 +300,7 @@ class Test extends haxe.unit.TestCase {
 		peq("class C<A> {}");
 		peq("class C<A, B> {}");
 		peq("class C<A:(Int), B:(Float, String)> {}");
+		peq("abstract class C {}");
 	}
 
 	function testInterface() {
@@ -312,6 +313,10 @@ class Test extends haxe.unit.TestCase {
 		peq("class C {function f();}");
 		peq("class C {function f(a);}");
 		peq("class C {function f(a, b);}");
+		peq("class C {abstract function f(a, b);}");
+		perr("class C {abstract static function f(a, b);}");
+		perr("class C {static abstract function f(a, b);}");
+		peq("class C {overload function f(a, b);}");
 		peq("class C {var a;var b;}");
 		peq("class C {var a(default, null);}");
 	}
@@ -342,6 +347,7 @@ class Test extends haxe.unit.TestCase {
 		peq("abstract A<S, T>(B<S>) from C<T> from D to E to F {}");
 	}
 
+
 	function testConditionals() {
 		eeq("#if true 1 #else 2 #end", "1");
 		eeq("#if false 1 #else 2 #end", "2");
@@ -354,6 +360,7 @@ class Test extends haxe.unit.TestCase {
 		eeq("#if (target.sys) 1 #else 2 #end", "2");
 		eeq("#if target.sys 1 #elseif target.php 2 #else 3 #end", "3");
 		eeq("#if target.sys 1 #elseif !target.php 2 #else 3 #end", "2");
+		eeq("#if (/* Hello */ debug) 1 #else 2 #end", "2");
 
 		perr("#if true class C{}");
 		perr("#if false class C{}");
@@ -373,28 +380,26 @@ class Test extends haxe.unit.TestCase {
 		eeq("#if true 1 #else #error \"Test failed\" #end", "1");
 		eeq("#if false #error \"Test failed\" #else 2 #end", "2");
 
-		var err = null;
-
-		err = perr("#if true #error #else 2 #end");
-		assertTrue(Std.is(err, haxeparser.HaxeParser.ParserError));
+		var err = perr("#if true #error #else 2 #end");
+		assertTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
 		assertEquals(haxeparser.HaxeParser.ParserErrorMsg.Unimplemented, err.msg);
 		assertEquals(9, err.pos.min);
 		assertEquals(15, err.pos.max);
 
 		err = perr("#if false 1 #else #error #end");
-		assertTrue(Std.is(err, haxeparser.HaxeParser.ParserError));
+		assertTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
 		assertEquals(haxeparser.HaxeParser.ParserErrorMsg.Unimplemented, err.msg);
 		assertEquals(18, err.pos.min);
 		assertEquals(24, err.pos.max);
 
 		err = perr("#if true #error \"Test passed\" #else 2 #end");
-		assertTrue(Std.is(err, haxeparser.HaxeParser.ParserError));
+		assertTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
 		assertTrue(err.msg.match(haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")));
 		assertEquals(9, err.pos.min);
 		assertEquals(15, err.pos.max);
 
 		err = perr("#if false 1 #else #error \"Test passed\" #end");
-		assertTrue(Std.is(err, haxeparser.HaxeParser.ParserError));
+		assertTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
 		assertTrue(err.msg.match(haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")));
 		assertEquals(18, err.pos.min);
 		assertEquals(24, err.pos.max);
@@ -408,23 +413,25 @@ class Test extends haxe.unit.TestCase {
 			methodName : "main"
 		}
 
-		eeq("macro 1;",           '({ expr : EConst(CInt(\"1\")), pos : { file : \"main:0\", min : 6, max : 7 } } : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro a;",           '({ expr : EConst(CIdent("a")), pos : { file : "main:0", min : 6, max : 7 } } : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro $a;",          '(a : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro ${a};",        '(a : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro $e{a};",       '(a : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro $a{a};",       '({ expr : EArrayDecl(a), pos : { file : "main:0", min : 8, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro $b{a};",       '({ expr : EBlock(a), pos : { file : "main:0", min : 8, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro $i{a};",       '({ expr : EConst(CIdent(a)), pos : { file : "main:0", min : 8, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro 1;",             '({ expr : EConst(CInt(\"1\")), pos : { file : \"main:0\", min : 6, max : 7 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro a;",             '({ expr : EConst(CIdent("a")), pos : { file : "main:0", min : 6, max : 7 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro $a;",            '(a : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro ${a};",          '(a : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro $e{a};",         '(a : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro $a{a};",         '({ expr : EArrayDecl(a), pos : { file : "main:0", min : 8, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro $b{a};",         '({ expr : EBlock(a), pos : { file : "main:0", min : 8, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro $i{a};",         '({ expr : EConst(CIdent(a)), pos : { file : "main:0", min : 8, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
 		//eeq("macro $p{a};",       '',fakePosInfos); // ???
 		//eeq("macro $v{a};",       '',fakePosInfos); // ???
-		eeq("macro var a;",       '({ expr : EVars([{ name : "a", type : null, expr : null }]), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro @meta var a;", '({ expr : EMeta({ name : "meta", params : [], pos : { file : "main:0", min : 6, max : 15 } }, { expr : EVars([{ name : "a", type : null, expr : null }]), pos : { file : "main:0", min : 12, max : 15 } }), pos : { file : "main:0", min : 6, max : 15 } } : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro f();",         '({ expr : ECall({ expr : EConst(CIdent("f")), pos : { file : "main:0", min : 6, max : 7 } }, []), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro :Array;",      '(TPath({ pack : [], name : "Array", params : [] }) : haxe.macro.Expr.ComplexType)',fakePosInfos);
+		eeq("macro var a;",         '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : false, meta : [] }]), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro final a;",       '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : true, meta : [] }]), pos : { file : "main:0", min : 6, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro final @meta a;", '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : true, meta : [{ name : "meta", params : [], pos : { file : "main:0", min : 12, max : 17 } }] }]), pos : { file : "main:0", min : 6, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro @meta var a;",   '({ expr : EMeta({ name : "meta", params : [], pos : { file : "main:0", min : 6, max : 15 } }, { expr : EVars([{ name : "a", type : null, expr : null, isFinal : false, meta : [] }]), pos : { file : "main:0", min : 12, max : 15 } }), pos : { file : "main:0", min : 6, max : 15 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro f();",           '({ expr : ECall({ expr : EConst(CIdent("f")), pos : { file : "main:0", min : 6, max : 7 } }, []), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro :Array;",        '(TPath({ pack : [], name : "Array", params : [] }) : haxe.macro.Expr.ComplexType)',fakePosInfos);
 
-		eeq("macro class A{};",   '({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 15 }, meta : [], params : [], isExtern : false, kind : TDClass(null, [], false, false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
-		eeq("macro class A<T>{};",'({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 18 }, meta : [], params : [{ name : "T", params : [], constraints : [] }], isExtern : false, kind : TDClass(null, [], false, false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
+		eeq("macro class A{};",     '({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 15 }, meta : [], params : [], isExtern : false, kind : TDClass(null, [], false, false, false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
+		eeq("macro class A<T>{};",  '({ pack : [], name : "A", pos : { file : "main:0", min : 6, max : 18 }, meta : [], params : [{ name : "T", params : [], meta : [], constraints : [] }], isExtern : false, kind : TDClass(null, [], false, false, false), fields : [] } : haxe.macro.Expr.TypeDefinition)',fakePosInfos);
 		eeq("macro.Utils.hello()");
 	}
 
@@ -535,11 +542,11 @@ class Test extends haxe.unit.TestCase {
 	}
 
 	function testIs() {
-		eeq("('' is String)", "Std.is('', String)");
-		eeq('("" is String)', 'Std.is("", String)');
-		eeq("([] is String)", "Std.is([], String)");
-		eeq("(cast unit.MyEnum.A is Array)", "Std.is(cast unit.MyEnum.A, Array)");
-		eeq("(map is haxe.ds.StringMap)", "Std.is(map, ds.haxe.StringMap)");
+		eeq("('' is String)", "('' is String)");
+		eeq('("" is String)', '("" is String)');
+		eeq("([] is String)", "([] is String)");
+		eeq("(cast unit.MyEnum.A is Array)", "(cast unit.MyEnum.A is Array)");
+		eeq("(map is haxe.ds.StringMap)", "(map is haxe.ds.StringMap)");
 	}
 
 	function testTypeIntersection() {
@@ -584,6 +591,7 @@ class Test extends haxe.unit.TestCase {
 		peq('private dynamic function privateDynamicFunc() return "privateDynamicFunc";');
 		peq('dynamic private function dynamicPrivateFunc() return "dynamicPrivateFunc";');
 		peq('@:isVar var prop(get, set) : String = "prop";function get_prop() return prop + "-get";function set_prop(value) return prop = value + "-set";');
+		peq('overload function func() return "func";');
 	}
 
 	function testimport() {
