@@ -1610,7 +1610,9 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:BkOpen, pos:p1}, l = parseArrayDecl(), {tok:BkClose, pos:p2}]: exprNext({expr: EArrayDecl(l), pos:punion(p1,p2)});
 			case [{tok:Kwd(KwdFunction), pos:p1}, e = parseFunction(p1, false)]: e;
 			case [{tok:Unop(op), pos:p1}, e = expr()]: makeUnop(op,e,p1);
+			#if (haxe >= version("4.2.0-rc.1"))
 			case [{tok:Binop(OpInterval), pos:p1}, e = expr()]: makeUnop(OpSpread,e,p1);
+			#end
 			case [{tok:Binop(OpSub), pos:p1}, e = expr()]:
 				function neg(s:String) {
 					return s.charCodeAt(0) == '-'.code
