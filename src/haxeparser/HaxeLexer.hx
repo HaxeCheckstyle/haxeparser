@@ -311,6 +311,11 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			lexer.token(sharp_token);
 			#end
 		},
+		'/\\*' => {
+			var pmin = lexer.curPos();
+			try lexer.token(comment) catch (e:haxe.io.Eof) throw new LexerError(UnclosedComment, mkPos(pmin));
+			lexer.token(sharp_token);
+		},
 		"[.]*" => lexer.token(tok)
 	];
 

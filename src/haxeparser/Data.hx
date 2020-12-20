@@ -45,6 +45,8 @@ enum Keyword {
 	KwdAbstract;
 	KwdMacro;
 	KwdFinal;
+	KwdOperator;
+	KwdOverload;
 }
 
 class KeywordPrinter {
@@ -92,6 +94,8 @@ class KeywordPrinter {
 			case KwdAbstract: "abstract";
 			case KwdMacro: "macro";
 			case KwdFinal: "final";
+			case KwdOperator: "operator";
+			case KwdOverload: "overload";
 		}
 	}
 }
@@ -213,9 +217,10 @@ enum ClassFlag {
 	HInterface;
 	HExtern;
 	HPrivate;
-	HFinal;
 	HExtends(t:TypePath);
 	HImplements(t:TypePath);
+	HFinal;
+	HAbstract;
 }
 
 enum AbstractFlag {
@@ -237,6 +242,7 @@ enum StaticFlag {
 	SInline;
 	SMacro;
 	SPrivate;
+	SOverload;
 }
 
 enum ImportMode {

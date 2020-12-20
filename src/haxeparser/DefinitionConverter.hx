@@ -37,6 +37,7 @@ class DefinitionConverter {
 		var def = getGeneralDefinition(c);
 		var isInterface = false;
 		var isFinal = false;
+		var isAbstract = false;
 		var superClass = null;
 		var implementsList = [];
 		for (flag in c.flags) {
@@ -47,10 +48,11 @@ class DefinitionConverter {
 				case HExtends(t): superClass = t;
 				case HImplements(t): implementsList.push(t);
 				case HPrivate: // TODO: ignored?
+				case HAbstract: isAbstract = true;
 			}
 		}
 		def.fields = c.data;
-		def.kind = TDClass(superClass, implementsList, isInterface, isFinal);
+		def.kind = TDClass(superClass, implementsList, isInterface, isFinal, isAbstract);
 		return def;
 	}
 
@@ -128,9 +130,11 @@ class DefinitionConverter {
 					access.push(AMacro);
 				case SPrivate:
 					access.push(APrivate);
-			}
+				case SOverload:
+					access.push(AOverload);
+				}
 		}
 		def.kind = TDField(c.data, access);
 		return def;
-	}	
+	}
 }
