@@ -2240,8 +2240,10 @@ private class Reificator{
 			#end
 			case EDisplay(e, dk):
 				expr("EDisplay", [loop(e), toDisplaykind(dk, p)]);
+			#if (haxe < version("4.3.0-rc.1"))
 			case EDisplayNew(t):
 				expr("EDisplayNew", [toTPath(t, p)]);
+			#end
 			case ETernary(e1, e2, e3):
 				expr("ETernary", [loop(e1), loop(e2), loop(e3)]);
 			case ECheckType(e1, ct):
