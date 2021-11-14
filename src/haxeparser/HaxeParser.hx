@@ -172,24 +172,6 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 	{
 		return {tk:None, expr:{expr:EConst(CIdent(t)), pos:p}};
 	}
-
-	function parseMacroOp(e:Expr):{tk:Option<Token>, expr:Expr}
-	{
-		return switch peek(0) {
-			case {tok:Binop(op)}:
-				junk();
-				op = switch peek(0) {
-					case {tok:Binop(OpAssign)} if (op == OpGt):
-						junk();
-						OpGte;
-					case _: op;
-				}
-				var o = parseMacroCond(true);
-				{tk:o.tk, expr:HaxeParser.makeBinop(op, e, o.expr)};
-			case tk:
-				{tk:Some(tk), expr:e};
-		}
-	}
 }
 @:enum abstract SkipState(Int){
 	var Consume    = 0;       // consume current branch
