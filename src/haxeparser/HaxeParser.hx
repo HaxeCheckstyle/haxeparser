@@ -28,6 +28,14 @@ enum SmallType {
 	SBool(b:Bool);
 	SFloat(f:Float);
 	SString(s:String);
+	SVersion(v:Version);
+}
+
+typedef Version = {
+	major:Int,
+	minor:Int,
+	patch:Int,
+	pre:String
 }
 
 class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Token> implements hxparse.ParserBuilder {
@@ -48,18 +56,121 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 				{tk:None, expr:{expr:EConst(CFloat(s)), pos:p}};
 			case [{tok:Kwd(k), pos:p}]:
 				parseMacroIdent(allowOp, HaxeParser.keywordString(k), p);
-			case [{tok:POpen, pos:p1}, o = parseMacroCond(true), {tok:PClose, pos:p2}]:
-				var e = {expr:EParenthesis(o.expr), pos:HaxeParser.punion(p1, p2)};
-				if (allowOp) parseMacroOp(e) else { tk:None, expr:e };
 			case [{tok:Unop(op), pos:p}, o = parseMacroCond(allowOp)]:
 				{tk:o.tk, expr:HaxeParser.makeUnop(op, o.expr, p)};
+			case [{tok:POpen, pos:p1}, o = expr(), {tok:PClose, pos:p2}]:
+				{ tk:None, expr:{expr:EParenthesis(o), pos:HaxeParser.punion(p1, p2)} };
 		}
+	}
+
+	public function expr():Expr {
+		return switch stream {
+			case [{tok:Const(c), pos:p}]: exprNext({expr:EConst(c), pos:p});
+			case [{tok:Kwd(KwdThis), pos:p}]: exprNext({expr: EConst(CIdent("this")), pos:p});
+			case [{tok:Kwd(KwdTrue), pos:p}]: exprNext({expr: EConst(CIdent("true")), pos:p});
+			case [{tok:Kwd(KwdFalse), pos:p}]: exprNext({expr: EConst(CIdent("false")), pos:p});
+			case [{tok:Kwd(KwdNull), pos:p}]: exprNext({expr: EConst(CIdent("null")), pos:p});
+			case [{tok:POpen, pos: p1}]:
+				switch stream {
+					case [e = expr()]:
+						switch stream {
+							case [{tok:PClose, pos:p2}]:
+								exprNext({expr: EParenthesis(e), pos:HaxeParser.punion(p1, p2)});
+							case _: unexpected();
+						}
+				}
+			case [{tok:Unop(op), pos:p1}, e = expr()]: HaxeParser.makeUnop(op,e,p1);
+			case _: unexpected();
+		}
+	}
+
+	function exprNext(e1:Expr):Expr {
+		return switch stream {
+			case [{tok:Dot, pos:p}, e = parseField(e1, p)]: e;
+			case [{tok:POpen, pos:_}]:
+				switch stream {
+					case [params = parseCallParams(), {tok:PClose, pos:p2}]:
+						exprNext({expr:ECall(e1,params),pos:HaxeParser.punion(e1.pos,p2)});
+					case _: unexpected();
+				}
+			case [{tok:BkOpen}, e2 = expr(), {tok:BkClose, pos:p2}]:
+				exprNext({expr:EArray(e1,e2), pos:HaxeParser.punion(e1.pos,p2)});
+			case [{tok:Binop(OpGt)}]:
+				switch stream {
+					case [{tok:Binop(OpGt)}]:
+						switch stream {
+							case [{tok:Binop(OpGt)}]:
+								switch stream {
+									case [{tok:Binop(OpAssign)}, e2 = expr()]:
+										HaxeParser.makeBinop(OpAssignOp(OpUShr),e1,e2);
+									case [e2 = expr()]: HaxeParser.makeBinop(OpUShr,e1,e2);
+								}
+							case [{tok:Binop(OpAssign)}, e2 = expr()]:
+								HaxeParser.makeBinop(OpAssignOp(OpShr),e1,e2);
+							case [e2 = expr()]:
+								HaxeParser.makeBinop(OpShr,e1,e2);
+						}
+					case [{tok:Binop(OpAssign)}]:
+						HaxeParser.makeBinop(OpGte,e1, expr());
+					case [e2 = expr()]:
+						HaxeParser.makeBinop(OpGt,e1,e2);
+				}
+			case [{tok:Binop(op)}, e2 = expr()]:
+				HaxeParser.makeBinop(op,e1,e2);
+			#if (haxe >= version("4.2.0-rc.1"))
+			case [{tok:Binop(OpInterval)}, e2 = expr()]:
+				HaxeParser.makeBinop(OpInterval,e1,e2);
+			#end
+			case [{tok:Question}, e2 = expr(), {tok:DblDot}, e3 = expr()]:
+				{ expr: ETernary(e1,e2,e3), pos: HaxeParser.punion(e1.pos, e3.pos)};
+			case _: e1;
+		}
+	}
+
+	function parseField(e1, p) {
+		return switch stream {
+			case [{tok:Kwd(KwdMacro), pos:p2}]:
+				exprNext({expr:EField(e1,"macro"), pos:HaxeParser.punion(e1.pos,p2)});
+			case [{tok:Kwd(KwdExtern), pos:p2}]:
+				exprNext({expr:EField(e1,"extern"), pos:HaxeParser.punion(e1.pos,p2)});
+			case [{tok:Kwd(KwdFunction), pos:p2}]:
+				exprNext({expr:EField(e1,"function"), pos:HaxeParser.punion(e1.pos,p2)});
+			case [{tok:Kwd(KwdNew), pos:p2}]:
+				exprNext({expr:EField(e1,"new"), pos:HaxeParser.punion(e1.pos,p2)});
+			case [{tok:Kwd(k), pos:p2}]:
+				exprNext({expr:EField(e1,KeywordPrinter.toString(k)), pos:HaxeParser.punion(e1.pos,p2)});
+			case [{tok:Const(CIdent(f)), pos:p2}]:
+				exprNext({expr:EField(e1,f), pos:HaxeParser.punion(e1.pos,p2)});
+			case [{tok:Dollar(v), pos:p2}]:
+				exprNext({expr:EField(e1, "$" + v), pos:HaxeParser.punion(e1.pos, p2)});
+			case _:
+				switch(e1) {
+					case {expr: EConst(CInt(v)), pos:p2} if (p2.max == p.min):
+						exprNext({expr:EConst(CFloat(v + ".")), pos:HaxeParser.punion(p,p2)});
+					case _: unexpected();
+				}
+		}
+	}
+
+
+	function parseCallParams() {
+		var ret = [];
+		switch stream {
+			case [e = expr()]: ret.push(e);
+			case _: return [];
+		}
+		while(true) {
+			switch stream {
+				case [{tok: Comma}, e = expr()]: ret.push(e);
+				case _: break;
+			}
+		}
+		return ret;
 	}
 
 	function parseMacroIdent(allowOp:Bool, t:String, p:Position):{tk:Option<Token>, expr:Expr}
 	{
-		var e = {expr:EConst(CIdent(t)), pos:p};
-		return if (!allowOp) { tk:None, expr:e } else parseMacroOp(e);
+		return {tk:None, expr:{expr:EConst(CIdent(t)), pos:p}};
 	}
 
 	function parseMacroOp(e:Expr):{tk:Option<Token>, expr:Expr}
@@ -118,12 +229,11 @@ class HaxeTokenSource {
 		return (skipstates.length>1) ? skipstates.pop() : throw('unexpected #end');
 	}
 
-	@:access(haxeparser.HaxeCondParser)
 	public function token():Token{
 		while(true){
 			var tk    = lexerToken();
 			var state = getSt();
-			switch [tk.tok,state] {
+			switch ([tk.tok,state]:Array<Dynamic>) {
 				case [CommentLine(_) | Comment(_) | Sharp("line"),_]:
 				case [Sharp("error"),Consume]:
 					var nextTok = lexerToken();
@@ -195,19 +305,40 @@ class HaxeTokenSource {
 			case [SFloat(a), SFloat(b)]: Reflect.compare(a, b);
 			case [SString(a), SString(b)]: Reflect.compare(a, b);
 			case [SBool(a), SBool(b)]: Reflect.compare(a, b);
+			case [SVersion(a), SVersion(b)]: compareVersion(a, b);
+			case [SVersion(a), SString(b)]: compareVersion(a, parseVersion(b));
+			case [SString(a), SVersion(b)]: compareVersion(parseVersion(a), b);
+			case [SNull, SVersion(b)]: compareVersion(null, b);
+			case [SVersion(a), SNull]: compareVersion(a, null);
 			case [SString(a), SFloat(b)]: Reflect.compare(Std.parseFloat(a), b);
 			case [SFloat(a), SString(b)]: Reflect.compare(a, Std.parseFloat(b));
 			case _: 0;
 		}
 	}
 
+	function compareVersion(a:Version, b:Version) {
+		if ((a == null) && (b == null)) return 0;
+		if (a == null) return -1;
+		if (b == null) return 1;
+		if (a.major > b.major) return 1;
+		if (a.major < b.major) return -1;
+		if (a.minor > b.minor) return 1;
+		if (a.minor < b.minor) return -1;
+		if (a.patch > b.patch) return 1;
+		if (a.patch < b.patch) return -1;
+		if (a.pre > b.pre) return 1;
+		if (a.pre < b.pre) return -1;
+		return 0;
+	}
+
 	function eval(e:Expr)
 	{
 		return switch (e.expr)
 		{
-			case EConst(CIdent(s)): defines.exists(s) ? SString(s) : SNull;
+			case EConst(CIdent(s)): defines.exists(s) ? SString(defines.get(s)) : SNull;
 			case EConst(CString(s)): SString(s);
 			case EConst(CInt(f)), EConst(CFloat(f)): SFloat(Std.parseFloat(f));
+			case ECall({expr: EConst(CIdent('version')), pos: p1},[{expr: EConst(CString(s)), pos: p2}]): SVersion(parseVersion(s));
 			case EBinop(OpBoolAnd, e1, e2): SBool(isTrue(eval(e1)) && isTrue(eval(e2)));
 			case EBinop(OpBoolOr, e1, e2): SBool(isTrue(eval(e1)) || isTrue(eval(e2)));
 			case EUnop(OpNot, _, e): SBool(!isTrue(eval(e)));
@@ -229,6 +360,23 @@ class HaxeTokenSource {
 				SBool(val);
 			case _: throw "Invalid condition expression";
 		}
+	}
+
+	function parseVersion(s:String):Version{
+		var reg = ~/([0-9]+)\.([0-9]+)\.([0-9]+)(.*)/;
+
+		var major:Int = 0;
+		var minor:Int = 0;
+		var patch:Int = 0;
+		var pre:String = "";
+
+		if (reg.match(s)) {
+			major = Std.parseInt(reg.matched(1));
+			minor = Std.parseInt(reg.matched(2));
+			patch = Std.parseInt(reg.matched(3));
+			pre = reg.matched(4);
+		}
+		return { major: major, minor: minor, patch: patch,pre: pre };
 	}
 
 	public function curPos():hxparse.Position{
@@ -756,6 +904,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				case _: unexpected();
 			}
 		}
+		unexpected();
 	}
 
 	function parseAbstractRelations() {

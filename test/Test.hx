@@ -1,17 +1,19 @@
-class Test extends haxe.unit.TestCase {
+import haxe.CallStack;
+import utest.Assert;
+import utest.ITest;
+
+class Test implements ITest {
 
 	static var whitespaceEreg = ~/[\t\n\r]*/g;
 
-	static function main() {
-		var r = new haxe.unit.TestRunner();
-		r.add(new Test());
-		#if haxe_std_path
-		r.add(new TestStd());
-		#end
-		haxe.Timer.measure(function() {
-			r.run();
-		});
-		Sys.exit(r.result.success ? 0 : 1);
+	var defines:Map<String, String>;
+
+	public function new() {
+		defines = new Map<String, String>();
+	}
+
+	function setup() {
+		defines.clear();
 	}
 
 	function testConst() {
@@ -280,11 +282,11 @@ class Test extends haxe.unit.TestCase {
 	}
 
 	function testPackage() {
-		assertEquals(0, parseFile("package;").pack.length);
-		assertEquals(1, parseFile("package x;").pack.length);
-		assertEquals(2, parseFile("package haxe.macro;").pack.length);
-		assertEquals(2, parseFile("package haxe.extern;").pack.length);
-		assertEquals(1, parseFile(
+		Assert.equals(0, parseFile("package;").pack.length);
+		Assert.equals(1, parseFile("package x;").pack.length);
+		Assert.equals(2, parseFile("package haxe.macro;").pack.length);
+		Assert.equals(2, parseFile("package haxe.extern;").pack.length);
+		Assert.equals(1, parseFile(
 		    "//test\n"
 		  + "package x;"
 		).pack.length);
@@ -362,6 +364,15 @@ class Test extends haxe.unit.TestCase {
 		eeq("#if target.sys 1 #elseif !target.php 2 #else 3 #end", "2");
 		eeq("#if (/* Hello */ debug) 1 #else 2 #end", "2");
 
+		eeq("#if (hl_ver >= version('1.11.0')) 1 #else 2 #end", "2");
+		eeq("#if (version('1.11.0') < hl_ver) 1 #else 2 #end", "2");
+		eeq("#if (version('1.11.0') < version('1.12.0')) 1 #else 2 #end", "1");
+		eeq("#if (version('1.11.0-alpha') == version('1.11.0-alpha')) 1 #else 2 #end", "1");
+		defines.set("hl_ver", "1.12.0");
+		eeq("#if (hl_ver >= version('1.11.0')) 1 #else 2 #end", "1");
+		eeq("#if (hl_ver != version('1.11.0')) 1 #else 2 #end", "1");
+		eeq("#if (hl_ver == version('1.12.0')) 1 #else 2 #end", "1");
+
 		perr("#if true class C{}");
 		perr("#if false class C{}");
 		perr("#if true class C{} #else class C{}");
@@ -381,28 +392,29 @@ class Test extends haxe.unit.TestCase {
 		eeq("#if false #error \"Test failed\" #else 2 #end", "2");
 
 		var err = perr("#if true #error #else 2 #end");
-		assertTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
-		assertEquals(haxeparser.HaxeParser.ParserErrorMsg.Unimplemented, err.msg);
-		assertEquals(9, err.pos.min);
-		assertEquals(15, err.pos.max);
+		Assert.isTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
+		Assert.equals(haxeparser.HaxeParser.ParserErrorMsg.Unimplemented, err.msg);
+		Assert.equals(9, err.pos.min);
+		Assert.equals(15, err.pos.max);
 
 		err = perr("#if false 1 #else #error #end");
-		assertTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
-		assertEquals(haxeparser.HaxeParser.ParserErrorMsg.Unimplemented, err.msg);
-		assertEquals(18, err.pos.min);
-		assertEquals(24, err.pos.max);
+		Assert.isTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
+		Assert.equals(haxeparser.HaxeParser.ParserErrorMsg.Unimplemented, err.msg);
+		Assert.equals(18, err.pos.min);
+		Assert.equals(24, err.pos.max);
 
 		err = perr("#if true #error \"Test passed\" #else 2 #end");
-		assertTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
-		assertTrue(err.msg.match(haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")));
-		assertEquals(9, err.pos.min);
-		assertEquals(15, err.pos.max);
+		Assert.isTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
+		// Assert.isTrue(err.msg.match(haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")));
+		Assert.equals('${haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")}', '${err.msg}');
+		Assert.equals(9, err.pos.min);
+		Assert.equals(15, err.pos.max);
 
 		err = perr("#if false 1 #else #error \"Test passed\" #end");
-		assertTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
-		assertTrue(err.msg.match(haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")));
-		assertEquals(18, err.pos.min);
-		assertEquals(24, err.pos.max);
+		Assert.isTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
+		Assert.equals('${haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")}', '${err.msg}');
+		Assert.equals(18, err.pos.min);
+		Assert.equals(24, err.pos.max);
 	}
 
 	function testMacro(){
@@ -601,20 +613,22 @@ class Test extends haxe.unit.TestCase {
 	function testimport() {
 		try {
 			parseFile('import haxe.macro.function.Test;');
-			assertTrue(true);
+			Assert.isTrue(true);
 		} catch (e:haxe.Exception) {
-			assertTrue(false);
+			Assert.isTrue(false);
 		}
 	}
 
-	static function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
+	function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
+		for (key => value in defines) parser.define(key, value);
 		var expr = parser.expr();
 		return haxe.macro.ExprTools.toString(expr);
 	}
 
-	static function parseFile(inputCode:String, ?p:haxe.PosInfos) {
+	function parseFile(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
+		for (key => value in defines) parser.define(key, value);
 		var data = parser.parse();
 		return data;
 	}
@@ -624,7 +638,7 @@ class Test extends haxe.unit.TestCase {
 		if (expectedCode == null) {
 			expectedCode = inputCode;
 		}
-		assertEquals(whitespaceEreg.replace(expectedCode, ""), whitespaceEreg.replace(inputParsed, ""), p);
+		Assert.equals(whitespaceEreg.replace(expectedCode, ""), whitespaceEreg.replace(inputParsed, ""), p);
 	}
 
 	function perr(inputCode:String, ?p:haxe.PosInfos){
@@ -637,7 +651,7 @@ class Test extends haxe.unit.TestCase {
 			catchError = true;
 			err = e;
 		}
-		assertTrue(catchError);
+		Assert.isTrue(catchError);
 		return err;
 	}
 
@@ -650,7 +664,7 @@ class Test extends haxe.unit.TestCase {
 		if (expectedCode == null) {
 			expectedCode = inputCode;
 		}
-		assertEquals(whitespaceEreg.replace(expectedCode, ""), whitespaceEreg.replace(inputParsed, ""), p);
+		Assert.equals(whitespaceEreg.replace(expectedCode, ""), whitespaceEreg.replace(inputParsed, ""), p);
 	}
 
 	function parentize(e:haxe.macro.Expr) {
@@ -669,6 +683,6 @@ class Test extends haxe.unit.TestCase {
 		if (expectedCode == null) {
 			expectedCode = inputCode;
 		}
-		assertEquals(printer.printExpr(parentize(expr)), expectedCode, p);
+		Assert.equals(printer.printExpr(parentize(expr)), expectedCode, p);
 	}
 }
