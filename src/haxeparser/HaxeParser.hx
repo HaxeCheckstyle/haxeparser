@@ -696,7 +696,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 							params: [],
 							flags: c.map(function(i) return i.s),
 							data: FVar(t,e.expr)
-						}), pos: punion(c[0].pos, e.pos)};
+						}), pos: (c.length > 0) ? punion(c[0].pos, e.pos) : e.pos};
 				}
 		}
 	}
