@@ -1,9 +1,13 @@
+import utest.Assert;
+import utest.ITest;
 import haxe.io.Path.*;
 import sys.FileSystem.*;
 
 using StringTools;
 
-class TestStd extends haxe.unit.TestCase {
+class TestStd implements ITest {
+
+	public function new() {}
 
 	function test() {
 		var basePath = haxe.macro.Compiler.getDefine("haxe_std_path");
@@ -33,8 +37,8 @@ class TestStd extends haxe.unit.TestCase {
 				});
 			} catch(e:Dynamic) {
 				hasError = true;
-				print('While parsing $path\n');
-				print('$e\n');
+				trace('While parsing $path\n');
+				trace('$e\n');
 			}
 		}
 		function read(dir:String) {
@@ -50,8 +54,10 @@ class TestStd extends haxe.unit.TestCase {
 				}
 			}
 		}
-		read(normalize(basePath));
-		print('Parsed $numFiles files');
-		assertFalse(hasError);
+		if (basePath != null) {
+			read(normalize(basePath));
+			trace('Parsed $numFiles files');
+			Assert.isFalse(hasError);
+		}
 	}
 }
