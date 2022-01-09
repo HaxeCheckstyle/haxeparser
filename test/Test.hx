@@ -619,6 +619,16 @@ class Test implements ITest {
 		}
 	}
 
+	function testDefaultTypeParams() {
+		peq("class DefaultTPClass_y<T=String> {}");
+		peq("class DefaultTPClass_yn<S=String, T> {}");
+		peq("class DefaultTPClass_ny<S, T=String> {}");
+		peq("class DefaultTPClass_yy<S=Int, T=String> {}");
+		peq("class DefaultTPClass_yy<S=pack.sub.Type, T=String> {}");
+		peq("class DefaultTPClass_yy<S:(pack.sub.Type)=pack.sub.TypeImpl, T=String> {}");
+		peq("class DefaultTPClass_yy<S:pack.sub.Type=pack.sub.TypeImpl, T=String> {}", "class DefaultTPClass_yy<S:(pack.sub.Type)=pack.sub.TypeImpl, T=String> {}");
+	}
+
 	function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
 		for (key => value in defines) parser.define(key, value);

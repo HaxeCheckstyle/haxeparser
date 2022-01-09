@@ -1423,10 +1423,19 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						}
 					case _: [];
 				}
+				var defaultType = switch stream {
+					case [{tok:Binop(OpAssign)}]:
+						switch stream {
+							case [t = parseComplexType()]: t;
+							case _: unexpected();
+						}
+					case _: null;
+				}
 				{
 					name: name,
 					params: params,
 					constraints: ctl,
+					defaultType: defaultType,
 					meta: meta
 				}
 		}
