@@ -347,8 +347,9 @@ class Test implements ITest {
 		peq("abstract A(B) from C from D to E {}");
 		peq("abstract A(B) from C from D to E to F {}");
 		peq("abstract A<S, T>(B<S>) from C<T> from D to E to F {}");
+		peq("function arr() return [abstract];");
+		peq("function foo():Array<String> {return [abstract + 2, abstract(), abstract.hi()];}");
 	}
-
 
 	function testConditionals() {
 		eeq("#if true 1 #else 2 #end", "1");
@@ -619,6 +620,7 @@ class Test implements ITest {
 		}
 	}
 
+	#if (haxe >= version("4.3.0-rc.1"))
 	function testDefaultTypeParams() {
 		peq("class DefaultTPClass_y<T=String> {}");
 		peq("class DefaultTPClass_yn<S=String, T> {}");
@@ -628,6 +630,7 @@ class Test implements ITest {
 		peq("class DefaultTPClass_yy<S:(pack.sub.Type)=pack.sub.TypeImpl, T=String> {}");
 		peq("class DefaultTPClass_yy<S:pack.sub.Type=pack.sub.TypeImpl, T=String> {}", "class DefaultTPClass_yy<S:(pack.sub.Type)=pack.sub.TypeImpl, T=String> {}");
 	}
+	#end
 
 	function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
