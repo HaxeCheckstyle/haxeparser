@@ -1,0 +1,18 @@
+{
+    "name": "haxeparser",
+    "version": "4.3.0",
+    "description": "A Haxe parser for Haxe",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/HaxeCheckstyle/haxeparser"
+    },
+    "keywords": [
+        "parser",
+        "haxe"
+    ],
+    "devDependencies": {
+        "lix": "^15.11.6"
+    },
+    "bugs": "https://github.com/HaxeCheckstyle/haxeparser/issues",
+    "license": "BSD"
+}

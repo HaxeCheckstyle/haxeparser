@@ -2,3 +2,4 @@ bin/
 .vscode/
 .unittest/
 lcov.info
+node_modules
