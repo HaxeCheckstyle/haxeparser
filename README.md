@@ -1,7 +1,7 @@
 haxeparser
 ==========
 
-[![TravisCI Build Status](https://api.travis-ci.org/Simn/haxeparser.svg?branch=master)](https://travis-ci.org/Simn/haxeparser)
+[![haxeparser](https://github.com/HaxeCheckstyle/haxeparser/workflows/haxeparser/badge.svg)](https://github.com/HaxeCheckstyle/haxeparser/actions)
 
 A Haxe parser for Haxe
 
