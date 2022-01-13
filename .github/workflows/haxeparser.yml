@@ -36,7 +36,5 @@ jobs:
         npx haxelib list
     - name: Run eval tests
       run: npx haxe build.hxml
-    - name: Run JS tests
-      run: npx haxe buildJs.hxml
     - name: Run JVM tests
       run: npx haxe buildJvm.hxml
