@@ -406,14 +406,13 @@ class Test implements ITest {
 
 		err = perr("#if true #error \"Test passed\" #else 2 #end");
 		Assert.isTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
-		// Assert.isTrue(err.msg.match(haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")));
-		Assert.equals('${haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")}', '${err.msg}');
+		Assert.equals('${haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")}', '${Std.string(err.msg)}');
 		Assert.equals(9, err.pos.min);
 		Assert.equals(15, err.pos.max);
 
 		err = perr("#if false 1 #else #error \"Test passed\" #end");
 		Assert.isTrue(Std.isOfType(err, haxeparser.HaxeParser.ParserError));
-		Assert.equals('${haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")}', '${err.msg}');
+		Assert.equals('${haxeparser.HaxeParser.ParserErrorMsg.SharpError("Test passed")}', '${Std.string(err.msg)}');
 		Assert.equals(18, err.pos.min);
 		Assert.equals(24, err.pos.max);
 	}

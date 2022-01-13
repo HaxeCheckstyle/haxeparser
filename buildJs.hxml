@@ -1,0 +1,21 @@
+-cp src
+-cp test
+-main TestMain
+-lib hxparse
+-lib hxnodejs
+-lib utest
+
+-dce full
+-D analyzer-optimize
+-D analyzer-user-var-fusion
+
+-D coverage-console-summary-reporter
+-D coverage-console-file-summary-reporter
+-D coverage-console-package-summary-reporter
+-D coverage-lcov-reporter
+-lib instrument
+--macro instrument.Instrumentation.coverage(['haxeparser'], ['src'], [])
+
+--js bin/haxeparser.js
+
+--cmd node bin/haxeparser.js

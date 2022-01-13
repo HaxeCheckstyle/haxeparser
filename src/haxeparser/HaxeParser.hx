@@ -317,7 +317,7 @@ class HaxeTokenSource {
 	{
 		return switch (e.expr)
 		{
-			case EConst(CIdent(s)): defines.exists(s) ? SString(defines.get(s)) : SNull;
+			case EConst(CIdent(s)): defines.exists(s) ? SString('${defines.get(s)}') : SNull;
 			case EConst(CString(s)): SString(s);
 			case EConst(CInt(f)), EConst(CFloat(f)): SFloat(Std.parseFloat(f));
 			case ECall({expr: EConst(CIdent('version')), pos: p1},[{expr: EConst(CString(s)), pos: p2}]): SVersion(parseVersion(s));
