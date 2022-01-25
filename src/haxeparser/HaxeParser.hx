@@ -1478,10 +1478,18 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseBlockElt() {
+	function parseBlockVar() {
 		return switch stream {
 			case [{tok:Kwd(KwdVar), pos:p1}, vl = psep(Comma, function() return parseVarDecl(false)), p2 = semicolon()]: { expr: EVars(vl), pos:punion(p1,p2)};
 			case [{tok:Kwd(KwdFinal), pos:p1}, vl = psep(Comma, () -> parseVarDecl(true)), p2 = semicolon()]: { expr: EVars(vl), pos:punion(p1,p2)};
+		}
+	}
+
+
+	function parseBlockElt() {
+		return switch stream {
+			case [e = parseBlockVar()]:
+				e;
 			case [{tok:Kwd(KwdInline), pos:p1}]:
 				switch stream {
 					case [{tok:Kwd(KwdFunction)}, e = parseFunction(p1, true), _ = semicolon()]:
@@ -1491,6 +1499,20 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 					case _:
 						unexpected();
 				}
+			#if (haxe >= version("4.3.0-rc.1"))
+			case [{tok:Kwd(KwdStatic), pos:p}]:
+				switch stream {
+					case [e = parseBlockVar()]:
+						switch (e.expr) {
+							case EVars(vars):
+								for (v in vars) v.isStatic = true;
+							case _:
+						}
+						e;
+					case _:
+						unexpected();
+				}
+			#end
 			case [e = expr(), _ = semicolon()]: e;
 		}
 	}
@@ -1534,7 +1556,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return acc;
 	}
 
-	function parseVarDecl(isFinal:Bool) {
+	function parseVarDecl(isFinal:Bool):Var {
 		return switch stream {
 			#if (haxe >= version("4.2.0-rc.1"))
 			case [meta = parseMeta(), id = dollarIdent(), t = parseTypeOpt()]:
@@ -2313,6 +2335,9 @@ private class Reificator{
 					var type = vv.type;
 					var expr = vv.expr;
 					var isFinal = vv.isFinal;
+					#if (haxe >= version("4.3.0-rc.1"))
+					var isStatic = vv.isStatic;
+					#end
 					#if (haxe >= version("4.2.0-rc.1"))
 					var meta = vv.meta;
 					#end
@@ -2321,6 +2346,9 @@ private class Reificator{
 						{field:"type", expr:toOpt(toCType, type, p), quotes:Unquoted},
 						{field:"expr", expr:toOpt(toExpr, expr, p), quotes:Unquoted},
 						{field:"isFinal", expr:toBool(isFinal, p), quotes:Unquoted},
+						#if (haxe >= version("4.3.0-rc.1"))
+						{field:"isStatic", expr:toBool(isStatic, p), quotes:Unquoted},
+						#end
 						#if (haxe >= version("4.2.0-rc.1"))
 						{field:"meta", expr:toMeta(meta, p), quotes:Unquoted}
 						#end

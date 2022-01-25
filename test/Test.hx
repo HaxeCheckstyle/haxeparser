@@ -435,10 +435,17 @@ class Test implements ITest {
 		eeq("macro $i{a};",         '({ expr : EConst(CIdent(a)), pos : { file : "main:0", min : 8, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
 		//eeq("macro $p{a};",       '',fakePosInfos); // ???
 		//eeq("macro $v{a};",       '',fakePosInfos); // ???
+		#if (haxe >= version("4.3.0-rc.1"))
+		eeq("macro var a;",         '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : false, isStatic : false, meta : [] }]), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro final a;",       '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : true, isStatic : false, meta : [] }]), pos : { file : "main:0", min : 6, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro final @meta a;", '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : true, isStatic : false, meta : [{ name : "meta", params : [], pos : { file : "main:0", min : 12, max : 17 } }] }]), pos : { file : "main:0", min : 6, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
+		eeq("macro @meta var a;",   '({ expr : EMeta({ name : "meta", params : [], pos : { file : "main:0", min : 6, max : 15 } }, { expr : EVars([{ name : "a", type : null, expr : null, isFinal : false, isStatic : false, meta : [] }]), pos : { file : "main:0", min : 12, max : 15 } }), pos : { file : "main:0", min : 6, max : 15 } } : haxe.macro.Expr)',fakePosInfos);
+		#else
 		eeq("macro var a;",         '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : false, meta : [] }]), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
 		eeq("macro final a;",       '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : true, meta : [] }]), pos : { file : "main:0", min : 6, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
 		eeq("macro final @meta a;", '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : true, meta : [{ name : "meta", params : [], pos : { file : "main:0", min : 12, max : 17 } }] }]), pos : { file : "main:0", min : 6, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
 		eeq("macro @meta var a;",   '({ expr : EMeta({ name : "meta", params : [], pos : { file : "main:0", min : 6, max : 15 } }, { expr : EVars([{ name : "a", type : null, expr : null, isFinal : false, meta : [] }]), pos : { file : "main:0", min : 12, max : 15 } }), pos : { file : "main:0", min : 6, max : 15 } } : haxe.macro.Expr)',fakePosInfos);
+		#end
 		eeq("macro f();",           '({ expr : ECall({ expr : EConst(CIdent("f")), pos : { file : "main:0", min : 6, max : 7 } }, []), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
 		eeq("macro :Array;",        '(TPath({ pack : [], name : "Array", params : [] }) : haxe.macro.Expr.ComplexType)',fakePosInfos);
 
@@ -628,6 +635,11 @@ class Test implements ITest {
 		peq("class DefaultTPClass_yy<S=pack.sub.Type, T=String> {}");
 		peq("class DefaultTPClass_yy<S:(pack.sub.Type)=pack.sub.TypeImpl, T=String> {}");
 		peq("class DefaultTPClass_yy<S:pack.sub.Type=pack.sub.TypeImpl, T=String> {}", "class DefaultTPClass_yy<S:(pack.sub.Type)=pack.sub.TypeImpl, T=String> {}");
+	}
+
+	function testLocalStatic() {
+		peq("function basic() {static var x = 1, y;}");
+		peq('function basic() {static final y = "final", z = 10;}');
 	}
 	#end
 

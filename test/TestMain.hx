@@ -19,7 +19,7 @@ class TestMain {
 
 				#if instrument
                 runner.onComplete.add(_ -> {
-                        instrument.coverage.Coverage.endCoverage();
+					instrument.coverage.Coverage.endCoverage();
                 });
                 #end
 				new DiagnosticsReport (runner);
