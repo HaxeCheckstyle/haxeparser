@@ -17,6 +17,8 @@ jobs:
     steps:
     - name: Checkout sources
       uses: actions/checkout@v1
+    - name: install Hashlink
+      uses: pxshadow/setup-hashlink@v1.0.1
     - name: Use Node.js 10
       uses: actions/setup-node@v1
       with:
@@ -36,5 +38,9 @@ jobs:
         npx haxelib list
     - name: Run eval tests
       run: npx haxe build.hxml
+    - name: Run NodeJs tests
+      run: npx haxe buildJs.hxml
+    - name: Run Hashlink tests
+      run: npx haxe buildHl.hxml
     - name: Run JVM tests
       run: npx haxe buildJvm.hxml
