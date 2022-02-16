@@ -473,7 +473,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case OpInterval : {p: 7, left: left};
 			case OpBoolAnd : {p: 8, left: left};
 			case OpBoolOr : {p: 9, left: left};
-			case OpArrow : {p: 10, left: left};
+			case OpArrow | OpNullCoal : {p: 10, left: right};
 			case OpAssign | OpAssignOp(_) : {p:11, left:right};
 		}
 	}
@@ -2063,6 +2063,9 @@ private class Reificator{
 			case OpInterval: return op("OpInterval");
 			case OpArrow: return op("OpArrow");
 			case OpIn: return op("OpIn");
+			#if (haxe >= version("4.3.0-rc.1"))
+			case OpNullCoal: return op("OpNullCoal");
+			#end
 		}
 	}
 

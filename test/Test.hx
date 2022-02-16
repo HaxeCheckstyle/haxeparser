@@ -76,6 +76,7 @@ class Test implements ITest {
 		eeq("1 % 1");
 		eeq("1 ... 1");
 		eeq("1 => 1");
+		eeq("1 ?? 1");
 	}
 
 	function testAssignOps() {
@@ -87,6 +88,9 @@ class Test implements ITest {
 		eeq("1 &= 1");
 		eeq("1 |= 1");
 		eeq("1 ^= 1");
+		eeq("1 &&= 1");
+		eeq("1 ||= 1");
+		eeq("1 ??= 1");
 		eeq("1 <<= 1");
 		eeq("1 >>= 1");
 		eeq("1 >>>= 1");
@@ -210,6 +214,7 @@ class Test implements ITest {
 		paeq("a => b in c", "(a => (b in c))");
 		paeq("a = b in c", "(a = (b in c))");
 		paeq("a += b in c", "(a += (b in c))");
+		paeq("a ?? b in c", "(a ?? (b in c))");
 	}
 
 	function testIf() {

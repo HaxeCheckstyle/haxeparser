@@ -82,6 +82,11 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		"*=" => mk(lexer,Binop(OpAssignOp(OpMult))),
 		"/=" => mk(lexer,Binop(OpAssignOp(OpDiv))),
 		"<<=" => mk(lexer,Binop(OpAssignOp(OpShl))),
+		"|\\|=" => mk(lexer,Binop(OpAssignOp(OpBoolOr))),
+		"&&=" => mk(lexer,Binop(OpAssignOp(OpBoolAnd))),
+		#if (haxe >= version("4.3.0-rc.1"))
+		"?\\?=" => mk(lexer,Binop(OpAssignOp(OpNullCoal))),
+		#end
 		"==" => mk(lexer,Binop(OpEq)),
 		"!=" => mk(lexer,Binop(OpNotEq)),
 		"<=" => mk(lexer,Binop(OpLte)),
@@ -114,6 +119,9 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		"}" => mk(lexer, BrClose),
 		"\\(" => mk(lexer, POpen),
 		"\\)" => mk(lexer, PClose),
+		#if (haxe >= version("4.3.0-rc.1"))
+		"?\\?" => mk(lexer,Binop(OpNullCoal)),
+		#end
 		"?" => mk(lexer, Question),
 		"@" => mk(lexer, At),
 		'"' => {
