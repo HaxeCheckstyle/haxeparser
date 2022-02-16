@@ -473,7 +473,11 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case OpInterval : {p: 7, left: left};
 			case OpBoolAnd : {p: 8, left: left};
 			case OpBoolOr : {p: 9, left: left};
+			#if (haxe >= version("4.3.0-rc.1"))
 			case OpArrow | OpNullCoal : {p: 10, left: right};
+			#else
+			case OpArrow : {p: 10, left: right};
+			#end
 			case OpAssign | OpAssignOp(_) : {p:11, left:right};
 		}
 	}

@@ -76,7 +76,9 @@ class Test implements ITest {
 		eeq("1 % 1");
 		eeq("1 ... 1");
 		eeq("1 => 1");
+		#if (haxe >= version("4.3.0-rc.1"))
 		eeq("1 ?? 1");
+		#end
 	}
 
 	function testAssignOps() {
@@ -90,7 +92,9 @@ class Test implements ITest {
 		eeq("1 ^= 1");
 		eeq("1 &&= 1");
 		eeq("1 ||= 1");
+		#if (haxe >= version("4.3.0-rc.1"))
 		eeq("1 ??= 1");
+		#end
 		eeq("1 <<= 1");
 		eeq("1 >>= 1");
 		eeq("1 >>>= 1");
@@ -214,7 +218,9 @@ class Test implements ITest {
 		paeq("a => b in c", "(a => (b in c))");
 		paeq("a = b in c", "(a = (b in c))");
 		paeq("a += b in c", "(a += (b in c))");
+		#if (haxe >= version("4.3.0-rc.1"))
 		paeq("a ?? b in c", "(a ?? (b in c))");
+		#end
 	}
 
 	function testIf() {
