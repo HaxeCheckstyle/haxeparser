@@ -1027,7 +1027,6 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	function parseTypeHint() {
 		return switch stream {
 			case [{tok: DblDot}, t = parseComplexType()]: t;
-			case _: null;
 		}
 	}
 
