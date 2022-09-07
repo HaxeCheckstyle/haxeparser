@@ -1,8 +1,8 @@
 package haxeparser;
 
-import haxeparser.Data;
 import haxe.macro.Expr;
 import hxparse.Lexer;
+import haxeparser.Data;
 
 enum LexerErrorMsg {
 	UnterminatedString;
@@ -48,6 +48,11 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 	static var idtype = "_*[A-Z][a-zA-Z0-9_]*";
 
 	static var integer = "([1-9][0-9]*)|0";
+
+	// static var xml_name_start_char = "[$|:A-Z_a-z\\u{x00C0}-\\u{x00D6}\\u{x00D8}-\\u{x00F6}\\u{x00F8}-\\u{x002FF}\\u{x00370}-\\u{x0037D}\\u{x0037F}-\\u{x001FFF}\\u{x00200C}-\\u{x00200D}\\u{x002070}-\\u{x00218F}\\u{x002C00}-\\u{x002FEF}\\u{x003001}-\\u{x00D7FF}\\u{x00F900}-\\u{x00FDCF}\\u{x00FDF0}-\\u{x00FFFD}\\u{x0010000}-\\u{x00EFFFF}]";
+	// static var xml_name_char = '[${xml_name_start_char}-.0-9\\u{x00B7}\\u{x0300}-\\u{x036F}\\u{x203F}-\\u{x2040}]';
+	// static var xml_name = '${xml_name_start_char}${xml_name_char}*';
+	static var xml_name = "[$|:A-Z_a-z\\u{x00C0}-\\u{x00D6}\\u{x00D8}-\\u{x00F6}\\u{x00F8}-\\u{x002FF}\\u{x00370}-\\u{x0037D}\\u{x0037F}-\\u{x001FFF}\\u{x00200C}-\\u{x00200D}\\u{x002070}-\\u{x00218F}\\u{x002C00}-\\u{x002FEF}\\u{x003001}-\\u{x00D7FF}\\u{x00F900}-\\u{x00FDCF}\\u{x00FDF0}-\\u{x00FFFD}\\u{x0010000}-\\u{x00EFFFF}][$|:A-Z_a-z\\u{x00C0}-\\u{x00D6}\\u{x00D8}-\\u{x00F6}\\u{x00F8}-\\u{x002FF}\\u{x00370}-\\u{x0037D}\\u{x0037F}-\\u{x001FFF}\\u{x00200C}-\\u{x00200D}\\u{x002070}-\\u{x00218F}\\u{x002C00}-\\u{x002FEF}\\u{x003001}-\\u{x00D7FF}\\u{x00F900}-\\u{x00FDCF}\\u{x00FDF0}-\\u{x00FFFD}\\u{x0010000}-\\u{x00EFFFF}\\-.0-9\\u{x00B7}\\u{x0300}-\\u{x036F}\\u{x203F}-\\u{x2040}]*";
 
 	// @:rule wraps the expression to the right of => with function(lexer) return
 	public static var tok = @:rule [
@@ -97,6 +102,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		"\\.\\.\\." => mk(lexer,Binop(OpInterval)),
 		"=>" => mk(lexer,Binop(OpArrow)),
 		"!" => mk(lexer,Unop(OpNot)),
+		"<" + xml_name => inlineMarkup(lexer),
 		"<" => mk(lexer,Binop(OpLt)),
 		">" => mk(lexer,Binop(OpGt)),
 		";" => mk(lexer, Semicolon),
@@ -326,6 +332,86 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		},
 		"[.]*" => lexer.token(tok)
 	];
+
+	static function inlineMarkup(lexer:Lexer) {
+		var tagName = lexer.current.substr(1);
+		var startPos = lexer.pos - lexer.current.length;
+		var text:String = lexer.input.readString(startPos, lexer.input.length - startPos);
+		var startTag = '<$tagName';
+		var endTag = '</$tagName>';
+
+		function normalLt() {
+			lexer.pos = startPos+1;
+			lexer.current = "<";
+			return mk(lexer, Binop(OpLt));
+		}
+
+		var depth = 0;
+		var index = 0;
+		while (true) {
+			var indexStartTag = text.indexOf(startTag, index);
+			var indexEndTag = text.indexOf(endTag, index);
+			if ((indexStartTag == -1) && (indexEndTag == -1)) {
+				return normalLt();
+			}
+			if (indexStartTag == -1) {
+				indexStartTag = indexEndTag + 1;
+			}
+			if (indexEndTag == -1) {
+				indexEndTag = indexStartTag + 1;
+			}
+
+			if (indexStartTag < indexEndTag) {
+				index = indexStartTag + startTag.length;
+				switch (text.charAt(index)) {
+					case " " | "/" | ">":
+					default:
+						continue;
+				}
+				depth++;
+				var indexSelfClosing = text.indexOf("/>", index);
+				var indexTagClosing = text.indexOf(">", index);
+				var indexOpenTag = text.indexOf("<", index);
+
+				if ((indexSelfClosing == -1) && (indexTagClosing == -1) && (indexOpenTag == -1)) {
+					return normalLt();
+				}
+				if (indexSelfClosing == -1) {
+					indexSelfClosing = Std.int(Math.max(indexTagClosing, indexOpenTag)) + 1;
+				}
+				if (indexTagClosing == -1) {
+					indexTagClosing = Std.int(Math.max(indexSelfClosing, indexOpenTag)) + 1;
+				}
+				if (indexOpenTag == -1) {
+					indexOpenTag = Std.int(Math.max(indexSelfClosing, indexTagClosing)) + 1;
+				}
+				if (indexSelfClosing < indexTagClosing && indexSelfClosing < indexOpenTag) {
+					index = indexSelfClosing + 2;
+					depth--;
+				}
+				if (indexTagClosing < indexSelfClosing && indexTagClosing < indexOpenTag) {
+					index = indexTagClosing + 1;
+				}
+				if (indexOpenTag < indexSelfClosing && indexOpenTag < indexTagClosing) {
+					index = indexOpenTag;
+				}
+			}
+			if (indexEndTag < indexStartTag) {
+				index = indexEndTag + endTag.length;
+				depth--;
+			}
+			if (depth <= 0) {
+				break;
+			}
+		}
+		text = text.substr(0, index);
+		var textBytes = byte.ByteData.ofString(text);
+		var endPos = startPos + textBytes.length;
+		lexer.current = text;
+		lexer.pos = endPos;
+
+		return mk(lexer, Const(CMarkup(text)));
+	}
 
 	static inline function unescapePos(pos:Position, index:Int, length:Int) {
 		return {

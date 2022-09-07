@@ -652,6 +652,37 @@ class Test implements ITest {
 		peq("function basic() {static var x = 1, y;}");
 		peq('function basic() {static final y = "final", z = 10;}');
 	}
+
+	function testInlineMarkup() {
+		peq("var SRC = <xml a=// </xml>;", "var SRC = @:markup \"<xml a=// </xml>\";");
+
+		peq('var SRC = <obj class="foo" padding-left={value} color="blue">@exampleText("!")<custom(55) public id="sub" custom-color="#ff0 0.5" active/><custom(66) if( anotherCustom )/></obj>;',
+		'var SRC = @:markup \"<obj class=\\"foo\\" padding-left={value} color=\\"blue\\">@exampleText(\\"!\\")<custom(55) public id=\\"sub\\" custom-color=\\"#ff0 0.5\\" active/><custom(66) if( anotherCustom )/></obj>\";');
+
+		peq("var SRC = <xml />;", "var SRC = @:markup \"<xml />\";");
+		peq("var SRC = <xml><xml /></xml>;", "var SRC = @:markup \"<xml><xml /></xml>\";");
+
+		peq("var SRC = <xml><xmlTest></xml>;", "var SRC = @:markup \"<xml><xmlTest></xml>\";");
+
+		peq("var SRC = <xml>ö</xml>;", "var SRC = @:markup \"<xml>ö</xml>\";");
+
+		peq("var SRC = <xml></xml>;", "var SRC = @:markup \"<xml></xml>\";");
+		peq("var SRC = <xml ></xml>;", "var SRC = @:markup \"<xml ></xml>\";");
+		peq("var SRC = <xml > </xml>;", "var SRC = @:markup \"<xml > </xml>\";");
+
+		peq('var SRC = <div some="attributes"/>;', 'var SRC = @:markup "<div some=\\"attributes\\"/>";');
+		peq('var SRC = <foo>$${x < foo ? "a" : "b"}</foo>;', 'var SRC = @:markup "<foo>$${x < foo ? \\"a\\" : \\"b\\"}</foo>";');
+
+		peq("var SRC = <xml><xml></xml></xml>;", "var SRC = @:markup \"<xml><xml></xml></xml>\";");
+		peq("var SRC = <xml><yml></xml>;", "var SRC = @:markup \"<xml><yml></xml>\";");
+
+		peq("var SRC = <xml/>;", "var SRC = @:markup \"<xml/>\";");
+		peq("var SRC = <xml abc />;", "var SRC = @:markup \"<xml abc />\";");
+
+		peq("var SRC = <syntax-test>for( x in arr )<custom(x)/>for( y in arr ) {<custom(y)/><custom(y)/>}</syntax-test>;", "var SRC = @:markup \"<syntax-test>for( x in arr )<custom(x)/>for( y in arr ) {<custom(y)/><custom(y)/>}</syntax-test>\";");
+
+		peq('var SRC = <c><flow class="xcdkfdskf-xxxx"/></c>;', 'var SRC = @:markup "<c><flow class=\\"xcdkfdskf-xxxx\\"/></c>";');
+	}
 	#end
 
 	function parseExpr(inputCode:String, ?p:haxe.PosInfos) {

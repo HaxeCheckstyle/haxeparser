@@ -102,7 +102,7 @@ class KeywordPrinter {
 
 enum TokenDef {
 	Kwd(k:Keyword);
-	Const(c:haxe.macro.Expr.Constant);
+	Const(c:Constant);
 	Sharp(s:String);
 	Dollar(s:String);
 	Unop(op:haxe.macro.Expr.Unop);
@@ -126,6 +126,16 @@ enum TokenDef {
 	Eof;
 }
 
+
+enum Constant {
+	CInt(v:String, ?s:String);
+	CFloat(f:String, ?s:String);
+	CString(s:String, ?kind:StringLiteralKind);
+	CIdent(s:String);
+	CRegexp(r:String, opt:String);
+	CMarkup(s:String);
+}
+
 class TokenDefPrinter {
 	static public function toString(def:TokenDef) {
 		return switch(def) {
@@ -133,6 +143,7 @@ class TokenDefPrinter {
 			case Const(CInt(s) | CFloat(s) | CIdent(s)): s;
 			case Const(CString(s)): '"$s"';
 			case Const(CRegexp(r, opt)): '~/$r/$opt';
+			case Const(CMarkup(s)): s;
 			case Sharp(s): '#$s';
 			case Dollar(s): '$$$s';
 			case Unop(op): new haxe.macro.Printer("").printUnop(op);

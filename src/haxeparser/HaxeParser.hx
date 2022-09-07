@@ -65,7 +65,7 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 
 	public function expr():Expr {
 		return switch stream {
-			case [{tok:Const(c), pos:p}]: exprNext({expr:EConst(c), pos:p});
+			case [{tok:Const(c), pos:p}]: exprNext(mapConstant(c, p));
 			case [{tok:Kwd(KwdThis), pos:p}]: exprNext({expr: EConst(CIdent("this")), pos:p});
 			case [{tok:Kwd(KwdTrue), pos:p}]: exprNext({expr: EConst(CIdent("true")), pos:p});
 			case [{tok:Kwd(KwdFalse), pos:p}]: exprNext({expr: EConst(CIdent("false")), pos:p});
@@ -1177,7 +1177,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch stream {
 			case [{tok:BkOpen, pos: p1}, l = parseArrayDecl(), {tok:BkClose, pos:p2}]: TPExpr({expr: EArrayDecl(l), pos:punion(p1,p2)});
 			case [t = parseComplexType()]: TPType(t);
-			case [{tok:Const(c), pos:p}]: TPExpr({expr:EConst(c), pos:p});
+			case [{tok:Const(c), pos:p}]: TPExpr(mapConstant(c, p));
 			case [e = expr()]: TPExpr(e);
 			case _: unexpected();
 		}
@@ -1692,7 +1692,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				}
 			case [{tok:Kwd(KwdVar), pos: p1}, v = parseVarDecl(false)]: { expr: EVars([v]), pos: p1};
 			case [{tok:Kwd(KwdFinal), pos: p1}, v = parseVarDecl(true)]: { expr: EVars([v]), pos: p1};
-			case [{tok:Const(c), pos:p}]: exprNext({expr:EConst(c), pos:p});
+			case [{tok:Const(c), pos:p}]: exprNext(mapConstant(c, p));
 			case [{tok:Kwd(KwdThis), pos:p}]: exprNext({expr: EConst(CIdent("this")), pos:p});
 			case [{tok:Kwd(KwdAbstract), pos:p}]: exprNext({expr: EConst(CIdent("abstract")), pos:p});
 			case [{tok:Kwd(KwdTrue), pos:p}]: exprNext({expr: EConst(CIdent("true")), pos:p});
@@ -1972,12 +1972,10 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch stream {
 			case [{tok:Kwd(KwdCatch), pos:p}, {tok:POpen}, id = ident(), ]:
 				switch stream {
-					case [t = parseTypeHint(), {tok:PClose}]:
-						{
-							name: id.name,
-							type: t,
-							expr: secureExpr()
-						}
+					case [t = parseTypeHint(), {tok:PClose}, e = secureExpr()]:
+						{name: id.name, type: t, expr: e}
+					case [{tok:PClose}, e = secureExpr()]:
+						{name: id.name, type: null, expr: e}
 					case _:
 						throw new ParserError(MissingType, p);
 				}
@@ -2578,4 +2576,37 @@ private class Reificator{
 		default: throw "Invalid type for reification";
 		}
 	}
+}
+
+function mapConstant(c:haxeparser.Constant, p:haxe.macro.Position):haxe.macro.Expr {
+	var constant:haxe.macro.Expr.Constant = switch (c) {
+		case CInt(v, s):
+			#if (haxe >= version("4.3.0-rc.1"))
+			CInt(v, s);
+			#else
+			CInt(v);
+			#end
+		case CFloat(f, s):
+			#if (haxe >= version("4.3.0-rc.1"))
+			CFloat(f, s);
+			#else
+			CFloat(f);
+			#end
+		case CIdent(s):
+			CIdent(s);
+		case CString(s, kind):
+			CString(s, kind);
+		case CRegexp(r, opt):
+			CRegexp(r, opt);
+		case CMarkup(s):
+			CString(s);
+	};
+
+	var expr = {expr: EConst(constant), pos:p};
+	return switch (c) {
+		case CInt(_)| CFloat(_)| CIdent(_)| CString(_)| CRegexp(_):
+			expr;
+		case CMarkup(_):
+			{expr: EMeta({name: ":markup", pos:p}, expr), pos:p};
+	};
 }
