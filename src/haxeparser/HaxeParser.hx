@@ -50,10 +50,22 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 				parseMacroIdent(allowOp, t, p);
 			case [{tok:Const(CString(s, qs)), pos:p}]:
 				{tk:None, expr:{expr:EConst(CString(s, qs)), pos:p}};
-			case [{tok:Const(CInt(s)), pos:p}]:
-				{tk:None, expr:{expr:EConst(CInt(s)), pos:p}};
-			case [{tok:Const(CFloat(s)), pos:p}]:
-				{tk:None, expr:{expr:EConst(CFloat(s)), pos:p}};
+			#if (haxe >= version("4.3.0-rc.1"))
+			case [{tok:Const(CInt(i, s)), pos:p}]:
+				{tk:None, expr:{expr:EConst(CInt(i, s)), pos:p}};
+			case [{tok:Const(CFloat(f, s)), pos:p}]:
+				{tk:None, expr:{expr:EConst(CFloat(f, s)), pos:p}};
+			#else
+			case [{tok:Const(CInt(i)), pos:p}]:
+				{tk:None, expr:{expr:EConst(CInt(i)), pos:p}};
+			case [{tok:Const(CFloat(f)), pos:p}]:
+				{tk:None, expr:{expr:EConst(CFloat(f)), pos:p}};
+			#else
+			case [{tok:Const(CInt(i)), pos:p}]:
+				{tk:None, expr:{expr:EConst(CInt(i)), pos:p}};
+			case [{tok:Const(CFloat(f)), pos:p}]:
+				{tk:None, expr:{expr:EConst(CFloat(f)), pos:p}};
+			#end
 			case [{tok:Kwd(k), pos:p}]:
 				parseMacroIdent(allowOp, HaxeParser.keywordString(k), p);
 			case [{tok:Unop(op), pos:p}, o = parseMacroCond(allowOp)]:
@@ -86,7 +98,13 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 
 	function exprNext(e1:Expr):Expr {
 		return switch stream {
+			#if (haxe >= version("4.3.0-rc.1"))
+			case [{tok:Dot, pos:p}, e = parseField(e1, Normal, p)]: e;
+			case [{tok:QuestionDot, pos:p}, e = parseField(e1, Safe, p)]: e;
+			#else
 			case [{tok:Dot, pos:p}, e = parseField(e1, p)]: e;
+			case [{tok:QuestionDot, pos:p}, e = parseField(e1, p)]: e;
+			#end
 			case [{tok:POpen, pos:_}]:
 				switch stream {
 					case [params = parseCallParams(), {tok:PClose, pos:p2}]:
@@ -117,16 +135,40 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 				}
 			case [{tok:Binop(op)}, e2 = expr()]:
 				HaxeParser.makeBinop(op,e1,e2);
-			#if (haxe >= version("4.2.0-rc.1"))
-			case [{tok:Binop(OpInterval)}, e2 = expr()]:
+			case [{tok:Spread}, e2 = expr()]:
 				HaxeParser.makeBinop(OpInterval,e1,e2);
-			#end
 			case [{tok:Question}, e2 = expr(), {tok:DblDot}, e3 = expr()]:
 				{ expr: ETernary(e1,e2,e3), pos: HaxeParser.punion(e1.pos, e3.pos)};
 			case _: e1;
 		}
 	}
 
+	#if (haxe >= version("4.3.0-rc.1"))
+	function parseField(e1, efk, p) {
+		return switch stream {
+			case [{tok:Kwd(KwdMacro), pos:p2}]:
+				exprNext({expr:EField(e1, "macro", efk), pos:HaxeParser.punion(e1.pos, p2)});
+			case [{tok:Kwd(KwdExtern), pos:p2}]:
+				exprNext({expr:EField(e1, "extern", efk), pos:HaxeParser.punion(e1.pos, p2)});
+			case [{tok:Kwd(KwdFunction), pos:p2}]:
+				exprNext({expr:EField(e1, "function", efk), pos:HaxeParser.punion(e1.pos, p2)});
+			case [{tok:Kwd(KwdNew), pos:p2}]:
+				exprNext({expr:EField(e1, "new", efk), pos:HaxeParser.punion(e1.pos, p2)});
+			case [{tok:Kwd(k), pos:p2}]:
+				exprNext({expr:EField(e1, KeywordPrinter.toString(k), efk), pos:HaxeParser.punion(e1.pos, p2)});
+			case [{tok:Const(CIdent(f)), pos:p2}]:
+				exprNext({expr:EField(e1, f, efk), pos:HaxeParser.punion(e1.pos, p2)});
+			case [{tok:Dollar(v), pos:p2}]:
+				exprNext({expr:EField(e1, "$" + v, efk), pos:HaxeParser.punion(e1.pos, p2)});
+			case _:
+				switch(e1) {
+					case {expr: EConst(CInt(v)), pos:p2} if (p2.max == p.min):
+						exprNext({expr:EConst(CFloat(v + ".")), pos:HaxeParser.punion(p, p2)});
+					case _: unexpected();
+				}
+		}
+	}
+	#else
 	function parseField(e1, p) {
 		return switch stream {
 			case [{tok:Kwd(KwdMacro), pos:p2}]:
@@ -151,7 +193,7 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 				}
 		}
 	}
-
+	#end
 
 	function parseCallParams() {
 		var ret = [];
@@ -443,9 +485,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						false;
 				}
 			case OpNeg | OpNegBits: false;
-			#if (haxe >= version("4.2.0-rc.1"))
 			case OpSpread: false;
-			#end
 		}
 	}
 
@@ -453,9 +493,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch(u) {
 			case OpIncrement | OpDecrement: true;
 			case OpNot | OpNeg | OpNegBits: true;
-			#if (haxe >= version("4.2.0-rc.1"))
 			case OpSpread: true;
-			#end
 		}
 	}
 
@@ -518,11 +556,29 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	@:allow(haxeparser.HaxeCondParser)
 	static function makeUnop(op:Unop, e:Expr, p1:Position) {
+		function neg(s:String) {
+			return s.charCodeAt(0) == '-'.code
+				? s.substr(1)
+				: "-" + s;
+		}
 		return switch(e.expr) {
-			case EBinop(bop,e,e2):
-				{ expr: EBinop(bop, makeUnop(op,e,p1), e2), pos: punion(p1,e.pos)};
-			case ETernary(e1,e2,e3):
-				{ expr: ETernary(makeUnop(op,e1,p1), e2, e3), pos:punion(p1,e.pos)};
+			case EBinop(bop, e, e2):
+				{ expr: EBinop(bop, makeUnop(op, e, p1), e2), pos: punion(p1,e.pos)};
+			case ETernary(e1, e2, e3):
+				{ expr: ETernary(makeUnop(op, e1, p1), e2, e3), pos:punion(p1,e.pos)};
+			case EIs(e, t):
+				{ expr: EIs(makeUnop(op, e, p1), t), pos:punion(p1, e.pos)};
+			#if (haxe >= version("4.3.0-rc.1"))
+			case EConst(CInt(v, s)) if (op.match(OpNeg)):
+				{ expr: EConst(CInt(neg(v), s)), pos:punion(p1, e.pos)};
+			case EConst(CFloat(v, s)) if (op.match(OpNeg)):
+				{ expr: EConst(CFloat(neg(v), s)), pos:punion(p1, e.pos)};
+			#else
+			case EConst(CInt(v)) if (op.match(OpNeg)):
+				{ expr: EConst(CInt(neg(v))), pos:punion(p1, e.pos)};
+			case EConst(CFloat(v)) if (op.match(OpNeg)):
+				{ expr: EConst(CFloat(neg(v))), pos:punion(p1, e.pos)};
+			#end
 			case _:
 				{ expr: EUnop(op,false,e), pos:punion(p1,e.pos)};
 		}
@@ -728,8 +784,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch stream {
 			case [{tok:Kwd(KwdImport), pos:p1}]:
 				parseImport(p1);
-			case [{tok:Kwd(KwdUsing), pos:p1}, t = parseTypePath(), p2 = semicolon()]:
-				{decl: EUsing(t), pos: punion(p1, p2)};
+			case [{tok:Kwd(KwdUsing), pos:p1}]:
+				parseUsing(p1);
 			case [doc = getDoc(), meta = parseMeta(), c = parseCommonFlags()]:
 				switch stream {
 					case [{tok:Kwd(KwdFunction), pos:p1}, name = parseFunName(), pl = parseConstraintParams(), {tok:POpen}, al = psep(Comma, parseFunParam), {tok:PClose}, t = parseTypeOpt()]:
@@ -853,44 +909,93 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseImport(p1:Position) {
-		var acc = switch stream {
-			case [{tok:Const(CIdent(name)), pos:p}]: [{pack:name, pos:p}];
-			case _: unexpected();
+	function parseImportApostrophe() {
+		function matchPart() {
+			return switch stream {
+				case [{tok:Const(CIdent(k)), pos: p}]:
+					{pack:k, pos:p};
+				case [{tok:Kwd(KwdMacro), pos:p}]:
+					{pack:"macro", pos:p};
+				case [{tok:Kwd(KwdExtern), pos:p}]:
+					{pack:"extern", pos:p};
+				case [{tok:Kwd(KwdFunction), pos:p}]:
+					{pack:"function", pos:p};
+				case _: unexpected();
+			}
 		}
+
+		var acc = [matchPart()];
 		while(true) {
 			switch stream {
 				case [{tok: Dot}]:
 					switch stream {
-						case [{tok:Const(CIdent(k)), pos: p}]:
-							acc.push({pack:k,pos:p});
-						case [{tok:Kwd(KwdMacro), pos:p}]:
-							acc.push({pack:"macro",pos:p});
-						case [{tok:Kwd(KwdExtern), pos:p}]:
-							acc.push({pack:"extern",pos:p});
-						case [{tok:Kwd(KwdFunction), pos:p}]:
-							acc.push({pack:"function",pos:p});
-						case [{tok:Binop(OpMult)}, {tok:Semicolon, pos:p2}]:
-							return {
-								decl: EImport(acc, IAll),
-								pos: p2
-							}
-						case _: unexpected();
+						case [{tok:Binop(OpMult)}]:
+							return EImport(acc, IAll);
+						case _:
 					}
-				case [{tok:Semicolon, pos:p2}]:
-					return {
-						decl: EImport(acc, INormal),
-						pos: p2
-					}
-				case [{tok:Binop(OpIn) | Const(CIdent('as'))}, {tok:Const(CIdent(name))}, {tok:Semicolon, pos:p2}]:
-					return {
-						decl: EImport(acc, IAsName(name)),
-						pos: p2
-					}
-				case _: unexpected();
+					acc.push (matchPart());
+				case [{tok:Kwd(KwdIn) | Binop(OpIn) | Const(CIdent('as'))}, {tok:Const(CIdent(name))}]:
+					return EImport(acc, IAsName(name));
+				case _:
+					return EImport (acc, INormal);
 			}
 		}
 		unexpected();
+	}
+
+	function parseImport(p1:Position) {
+		return switch stream {
+			case [decl = parseImportApostrophe(), {tok:Semicolon, pos:p2}]:
+				return {
+					decl: decl,
+					pos: punion (p1, p2)
+				}
+			case _:
+				unexpected();
+		}
+	}
+
+	function parseUsingApostrophe() {
+		function matchPart() {
+			return switch stream {
+				case [{tok:Const(CIdent(k))}]:
+					k;
+				case [{tok:Kwd(KwdMacro)}]:
+					"macro";
+				case [{tok:Kwd(KwdExtern)}]:
+					"extern";
+				case [{tok:Kwd(KwdFunction)}]:
+					"function";
+				case _: unexpected();
+			}
+		}
+		var acc = [matchPart()];
+		while(true) {
+			switch stream {
+				case [{tok: Dot}]:
+					acc.push(matchPart());
+				case _:
+					break;
+			}
+		}
+
+		return acc;
+	}
+
+	function parseUsing(p1:Position) {
+		return switch stream {
+			case [acc = parseUsingApostrophe(), {tok:Semicolon, pos:p2}]:
+				var name = acc.pop();
+				return {
+					decl: EUsing({
+						pack: acc,
+						name: name
+					}),
+					pos: punion(p1, p2)
+				};
+			case _:
+				unexpected();
+		}
 	}
 
 	function parseAbstractRelations() {
@@ -951,7 +1056,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseMetaEntry() {
+	function parseMetaEntry():haxe.macro.Expr.MetadataEntry {
 		return switch stream {
 			case [{tok:At, pos:p1}, name = parseMetaName(p1), params = parseMetaParams(name.pos)]: {name: name.name, params: params, pos: name.pos};
 		}
@@ -1098,8 +1203,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				}
 			case [{tok:Question}, t = parseComplexTypeInner(allowNamed)]:
 				TOptional(t);
-			#if (haxe >= version("4.2.0-rc.1"))
-			case [{tok:Binop(OpInterval)}, t = parseComplexTypeInner(allowNamed)]:
+			case [{tok:Spread}, t = parseComplexTypeInner(allowNamed)]:
 				var hint = switch (t) {
 					case TNamed(_, t):
 						t;
@@ -1107,7 +1211,6 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						t;
 				}
 				TPath({pack: ["haxe"], name: "Rest", params: [TPType(hint)]});
-			#end
 			case [n = dollarIdent()]:
 				switch stream {
 					case [{tok:DblDot}, t = parseComplexType()] if (allowNamed):
@@ -1177,7 +1280,11 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch stream {
 			case [{tok:BkOpen, pos: p1}, l = parseArrayDecl(), {tok:BkClose, pos:p2}]: TPExpr({expr: EArrayDecl(l), pos:punion(p1,p2)});
 			case [t = parseComplexType()]: TPType(t);
+			case [{tok:Unop(op), pos: p1}, {tok:Const(c), pos: p2}]: TPExpr(makeUnop(op, mapConstant(c, p2), p1));
+			case [{tok:Binop(OpSub), pos: p1}, {tok:Const(c), pos: p2}]: TPExpr(makeUnop(OpNeg, mapConstant(c, p2), p1));
 			case [{tok:Const(c), pos:p}]: TPExpr(mapConstant(c, p));
+			case [{tok:Kwd(KwdTrue), pos:p}]: TPExpr({expr:EConst(CIdent("true")), pos:p});
+			case [{tok:Kwd(KwdFalse), pos:p}]: TPExpr({expr:EConst(CIdent("false")), pos:p});
 			case [e = expr()]: TPExpr(e);
 			case _: unexpected();
 		}
@@ -1364,10 +1471,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case [{tok:Kwd(KwdDynamic)}, l = parseCfRights(allowStatic, apush(l, ADynamic))]: l;
 			case [{tok:Kwd(KwdInline)}, l = parseCfRights(allowStatic, apush(l, AInline))]: l;
 			case [{tok:Kwd(KwdExtern)}, l = parseCfRights(allowStatic, apush(l, AExtern))]: l;
-			#if (haxe >= version("4.2.0-rc.1"))
 			case [{tok:Kwd(KwdAbstract)} && allowStatic, l = parseCfRights(false, apush(l, AAbstract))]: l;
 			case [{tok:Kwd(KwdOverload)}, l = parseCfRights(allowStatic, apush(l, AOverload))]: l;
-			#end
 			case _: l;
 		}
 	}
@@ -1384,11 +1489,12 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return switch stream {
 			case [{tok:Question}, id = dollarIdent(), t = parseTypeOpt(), c = parseFunParamValue()]: { name: id.name, opt: true, type: t, value: c, meta: meta };
 			case [id = dollarIdent(), t = parseTypeOpt(), c = parseFunParamValue()]: { name: id.name, opt: false, type: t, value: c, meta: meta };
-			#if (haxe >= version("4.2.0-rc.1"))
-			case [{tok:Binop(OpInterval)}, id = dollarIdent(), t = parseTypeOpt(), c = parseFunParamValue()]:
+			case [{tok:Spread}, id = dollarIdent(), t = parseTypeOpt(), c = parseFunParamValue()]:
+				if (t == null) {
+					t = TPath({pack:["$"], name: "_hx_mono"});
+				}
 				var t = TPath({pack: ["haxe"], name: "Rest", params: [TPType(t)]});
 				{ name: id.name, opt: false, type: t, value: c, meta: meta };
-			#end
 		}
 	}
 
@@ -1561,19 +1667,11 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 
 	function parseVarDecl(isFinal:Bool):Var {
 		return switch stream {
-			#if (haxe >= version("4.2.0-rc.1"))
 			case [meta = parseMeta(), id = dollarIdent(), t = parseTypeOpt()]:
 				switch stream {
 					case [{tok:Binop(OpAssign)}, e = expr()]: { name: id.name, type: t, expr: e, isFinal: isFinal, meta: meta};
 					case _: { name: id.name, type:t, expr: null, isFinal: isFinal, meta: meta};
 				}
-			#else
-			case [id = dollarIdent(), t = parseTypeOpt()]:
-				switch stream {
-					case [{tok:Binop(OpAssign)}, e = expr()]: { name: id.name, type: t, expr: e, isFinal: isFinal};
-					case _: { name: id.name, type:t, expr: null, isFinal: isFinal};
-				}
-			#end
 		}
 	}
 
@@ -1687,7 +1785,11 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				}
 			case [{tok:Kwd(KwdMacro), pos:p}]:
 				switch stream {
+					#if (haxe >= version("4.3.0-rc.1"))
+					case [{tok:Dot, pos:pd}, e = parseField({expr:EConst(CIdent("macro")), pos:p}, Normal, pd)]: e;
+					#else
 					case [{tok:Dot, pos:pd}, e = parseField({expr:EConst(CIdent("macro")), pos:p}, pd)]: e;
+					#end
 					case [e = parseMacroExpr(p)]: e;
 				}
 			case [{tok:Kwd(KwdVar), pos: p1}, v = parseVarDecl(false)]: { expr: EVars([v]), pos: p1};
@@ -1707,11 +1809,6 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 								var pu = punion(p1, p2);
 								var ep = {expr: EParenthesis({expr: ECheckType(e, t), pos: pu}), pos: pu};
 								exprNext({expr: ECast(ep, null), pos: punion(p1, pu)});
-							#if (haxe < version("4.2.0-rc.1"))
-							case [{tok:Const(CIdent("is")), pos:p_is}, t = parseTypePath(), {tok:PClose, pos:p2}]:
-								var e_is = makeIs(e, t, punion(p1, p2), p_is);
-								exprNext({expr:ECast(e_is, null), pos:punion(p1, e_is.pos)});
-							#end
 							case [{tok:PClose, pos:p2}]:
 								var ep = exprNext({expr: EParenthesis(e), pos: punion(pp, p2)});
 								exprNext({expr:ECast(ep,null),pos:punion(p1,ep.pos)});
@@ -1766,32 +1863,15 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 										}
 								}
 							}
-							#if (haxe < version("4.2.0-rc.1"))
-							case [{tok:Const(CIdent("is")), pos:p_is}, t = parseTypePath(), {tok:PClose, pos:p2}]:
-								exprNext(makeIs(e, t, punion(p1, p2), p_is));
-							#end
 							case _: unexpected();
 						}
 				}
 			case [{tok:BkOpen, pos:p1}, l = parseArrayDecl(), {tok:BkClose, pos:p2}]: exprNext({expr: EArrayDecl(l), pos:punion(p1,p2)});
 			case [{tok:Kwd(KwdFunction), pos:p1}, e = parseFunction(p1, false)]: e;
-			case [{tok:Unop(op), pos:p1}, e = expr()]: makeUnop(op,e,p1);
-			#if (haxe >= version("4.2.0-rc.1"))
-			case [{tok:Binop(OpInterval), pos:p1}, e = expr()]: makeUnop(OpSpread,e,p1);
-			#end
+			case [{tok:Unop(op), pos:p1}, e = expr()]: makeUnop(op, e, p1);
+			case [{tok:Spread, pos:p1}, e = expr()]: makeUnop(OpSpread, e, p1);
 			case [{tok:Binop(OpSub), pos:p1}, e = expr()]:
-				function neg(s:String) {
-					return s.charCodeAt(0) == '-'.code
-						? s.substr(1)
-						: "-" + s;
-				}
-				switch (makeUnop(OpNeg,e,p1)) {
-					case {expr:EUnop(OpNeg,false,{expr:EConst(CInt(i))}), pos:p}:
-						{expr:EConst(CInt(neg(i))), pos:p};
-					case {expr:EUnop(OpNeg,false,{expr:EConst(CFloat(j))}), pos:p}:
-						{expr:EConst(CFloat(neg(j))), pos:p};
-					case e: e;
-				}
+				makeUnop(OpNeg, e, p1);
 			case [{tok:Kwd(KwdFor), pos:p}, {tok:POpen}, it = expr(), {tok:PClose}]:
 				var e = secureExpr();
 				{ expr: EFor(it,e), pos:punion(p, e.pos)};
@@ -1819,7 +1899,11 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				{ expr: ESwitch(e,cases.cases,cases.def), pos:punion(p1,p2)};
 			case [{tok:Kwd(KwdTry), pos:p1}, e = expr(), cl = parseRepeat(parseCatch)]:
 				{ expr: ETry(e,cl), pos:p1};
+			#if (haxe >= version("4.3.0-rc.1"))
+			case [{tok:IntInterval(i), pos:p1}, e2 = expr()]: makeBinop(OpInterval,{expr:EConst(CInt(i, null)), pos:p1}, e2);
+			#else
 			case [{tok:IntInterval(i), pos:p1}, e2 = expr()]: makeBinop(OpInterval,{expr:EConst(CInt(i)), pos:p1}, e2);
+			#end
 			case [{tok:Kwd(KwdUntyped), pos:p1}, e = expr()]: { expr: EUntyped(e), pos:punion(p1,e.pos)};
 			case [{tok:Dollar(v), pos:p}]: exprNext({expr:EConst(CIdent("$" + v)), pos:p});
 			case [{tok:Kwd(KwdInline), pos:p}, e = secureExpr()]: makeMeta(":inline", [], e, p);
@@ -1838,7 +1922,13 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						exprNext({expr: EMeta({name:n, params:[], pos:e1.pos},eparam), pos:punion(p1,p2)});
 					case _: throw false;
 				}
+			#if (haxe >= version("4.3.0-rc.1"))
+			case [{tok:Dot, pos:p}, e = parseField(e1, Normal, p)]: e;
+			case [{tok:QuestionDot, pos:p}, e = parseField(e1, Safe, p)]: e;
+			#else
 			case [{tok:Dot, pos:p}, e = parseField(e1, p)]: e;
+			case [{tok:QuestionDot, pos:p}, e = parseField(e1, p)]: e;
+			#end
 			case [{tok:POpen, pos:_}]:
 				switch stream {
 					case [params = parseCallParams(), {tok:PClose, pos:p2}]:
@@ -1872,49 +1962,72 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 				}
 			case [{tok:Binop(op)}, e2 = expr()]:
 				makeBinop(op,e1,e2);
-			#if (haxe >= version("4.2.0-rc.1"))
-			case [{tok:Binop(OpInterval)}, e2 = expr()]:
+			case [{tok:Spread}, e2 = expr()]:
 				makeBinop(OpInterval,e1,e2);
-			#end
 			case [{tok:Unop(op), pos:p} && isPostfix(e1,op)]:
 				exprNext({expr:EUnop(op,true,e1), pos:punion(e1.pos, p)});
 			case [{tok:Question}, e2 = expr(), {tok:DblDot}, e3 = expr()]:
 				{ expr: ETernary(e1,e2,e3), pos: punion(e1.pos, e3.pos)};
-			#if (haxe >= version("4.2.0-rc.1"))
-			// included for completeness, already handled by Binop case above
-			// case [{tok:Kwd(KwdIn)}, e2 = expr()]:
-			// 	makeBinop(OpIn,e1,e2);
+			case [{tok:Kwd(KwdIn)}, e2 = expr()]:
+				makeBinop(OpIn,e1,e2);
 			case [{tok:Const(CIdent("is"))}, t = parseComplexType()]:
 				exprNext({expr: EIs(e1,t), pos: e1.pos});
-			#end
 			case _: e1;
 		}
 	}
 
+
+	#if (haxe >= version("4.3.0-rc.1"))
+	function parseField(e1, efk, p) {
+		return switch stream {
+			case [{tok:Kwd(KwdMacro), pos:p2}]:
+				exprNext({expr:EField(e1, "macro", efk), pos:punion(e1.pos,p2)});
+			case [{tok:Kwd(KwdExtern), pos:p2}]:
+				exprNext({expr:EField(e1, "extern", efk), pos:punion(e1.pos, p2)});
+			case [{tok:Kwd(KwdFunction), pos:p2}]:
+				exprNext({expr:EField(e1, "function", efk), pos:punion(e1.pos, p2)});
+			case [{tok:Kwd(KwdNew), pos:p2}]:
+				exprNext({expr:EField(e1, "new", efk), pos:punion(e1.pos, p2)});
+			case [{tok:Kwd(k), pos:p2}]:
+				exprNext({expr:EField(e1, KeywordPrinter.toString(k), efk), pos:punion(e1.pos, p2)});
+			case [{tok:Const(CIdent(f)), pos:p2}]:
+				exprNext({expr:EField(e1, f, efk), pos:punion(e1.pos, p2)});
+			case [{tok:Dollar(v), pos:p2}]:
+				exprNext({expr:EField(e1, "$" + v, efk), pos:punion(e1.pos, p2)});
+				case _:
+					switch(e1) {
+						case {expr: EConst(CInt(v, null)), pos:p2} if (p2.max == p.min):
+							exprNext({expr:EConst(CFloat(v + ".", null)), pos:punion(p, p2)});
+							case _: unexpected();
+						}
+		}
+	}
+	#else
 	function parseField(e1, p) {
 		return switch stream {
 			case [{tok:Kwd(KwdMacro), pos:p2}]:
-				exprNext({expr:EField(e1,"macro"), pos:punion(e1.pos,p2)});
+				exprNext({expr:EField(e1, "macro"), pos:punion(e1.pos,p2)});
 			case [{tok:Kwd(KwdExtern), pos:p2}]:
-				exprNext({expr:EField(e1,"extern"), pos:punion(e1.pos,p2)});
+				exprNext({expr:EField(e1, "extern"), pos:punion(e1.pos, p2)});
 			case [{tok:Kwd(KwdFunction), pos:p2}]:
-				exprNext({expr:EField(e1,"function"), pos:punion(e1.pos,p2)});
+				exprNext({expr:EField(e1, "function"), pos:punion(e1.pos, p2)});
 			case [{tok:Kwd(KwdNew), pos:p2}]:
-				exprNext({expr:EField(e1,"new"), pos:punion(e1.pos,p2)});
+				exprNext({expr:EField(e1, "new"), pos:punion(e1.pos, p2)});
 			case [{tok:Kwd(k), pos:p2}]:
-				exprNext({expr:EField(e1,KeywordPrinter.toString(k)), pos:punion(e1.pos,p2)});
+				exprNext({expr:EField(e1, KeywordPrinter.toString(k)), pos:punion(e1.pos, p2)});
 			case [{tok:Const(CIdent(f)), pos:p2}]:
-				exprNext({expr:EField(e1,f), pos:punion(e1.pos,p2)});
+				exprNext({expr:EField(e1, f), pos:punion(e1.pos, p2)});
 			case [{tok:Dollar(v), pos:p2}]:
 				exprNext({expr:EField(e1, "$" + v), pos:punion(e1.pos, p2)});
-			case _:
-				switch(e1) {
-					case {expr: EConst(CInt(v)), pos:p2} if (p2.max == p.min):
-						exprNext({expr:EConst(CFloat(v + ".")), pos:punion(p,p2)});
-					case _: unexpected();
-				}
+				case _:
+					switch(e1) {
+						case {expr: EConst(CInt(v)), pos:p2} if (p2.max == p.min):
+							exprNext({expr:EConst(CFloat(v + ".")), pos:punion(p, p2)});
+						case _: unexpected();
+					}
 		}
 	}
+	#end
 
 	function parseGuard() {
 		return switch stream {
@@ -2200,10 +2313,8 @@ private class Reificator{
 			case AMacro:    "AMacro";
 			case AFinal:     "AFinal";
 			case AExtern:   "AExtern";
-			#if (haxe >= version("4.2.0-rc.1"))
 			case AAbstract:    "AAbstract";
 			case AOverload:   "AOverload";
-			#end
 		}
 		return mkEnum("Access", n, [], p);
 	}
@@ -2327,9 +2438,7 @@ private class Reificator{
 					case OpNot: ops = "OpNot";
 					case OpNeg: ops = "OpNeg";
 					case OpNegBits: ops = "OpNegBits";
-					#if (haxe >= version("4.2.0-rc.1"))
 					case OpSpread: ops = "OpSpread";
-					#end
 				}
 				var op2 = mkEnum("Unop", ops, [], p);
 				expr("EUnop", [op2, toBool(isPostfix, p), loop(e)]);
@@ -2342,9 +2451,7 @@ private class Reificator{
 					#if (haxe >= version("4.3.0-rc.1"))
 					var isStatic = vv.isStatic;
 					#end
-					#if (haxe >= version("4.2.0-rc.1"))
 					var meta = vv.meta;
-					#end
 					var fields:Array<{field:String, expr:Expr, quotes:QuoteStatus}> = [
 						{field:"name", expr:toString(name, p), quotes:Unquoted},
 						{field:"type", expr:toOpt(toCType, type, p), quotes:Unquoted},
@@ -2353,9 +2460,7 @@ private class Reificator{
 						#if (haxe >= version("4.3.0-rc.1"))
 						{field:"isStatic", expr:toBool(isStatic, p), quotes:Unquoted},
 						#end
-						#if (haxe >= version("4.2.0-rc.1"))
 						{field:"meta", expr:toMeta(meta, p), quotes:Unquoted}
-						#end
 					];
 					return toObj(fields, p);
 				}, vl, p)]);
@@ -2407,10 +2512,8 @@ private class Reificator{
 				expr("EThrow", [loop(e)]);
 			case ECast(e, ct):
 				expr("ECast", [loop(e), toOpt(toCType, ct, p)]);
-			#if (haxe >= version("4.2.0-rc.1"))
 			case EIs(e, ct):
 				expr("EIs", [loop(e), toCType(ct, p)]);
-			#end
 			case EDisplay(e, dk):
 				expr("EDisplay", [loop(e), toDisplaykind(dk, p)]);
 			#if (haxe < version("4.3.0-rc.1"))

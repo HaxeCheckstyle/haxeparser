@@ -47,11 +47,16 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 	static var sharp_ident = "[a-z_][a-zA-Z0-9_]*(\\.[a-z_][a-zA-Z0-9_]*)*";
 	static var idtype = "_*[A-Z][a-zA-Z0-9_]*";
 
-	static var integer = "([1-9][0-9]*)|0";
+	static var integer_digits = '([0-9](_?[0-9])*)+';
+	static var integer = '([1-9](_?[0-9])*)|0';
+	static var hex_digits = '([0-9a-fA-F](_?[0-9a-fA-F])*)+';
+
+	static var integer_suffix = "(_?[iu](([1-9](_?[0-9])*)|0)+)?";
+	static var float_suffix = "(_?f(([1-9](_?[0-9])*)|0)+)?";
 
 	// static var xml_name_start_char = "[$|:A-Z_a-z\\u{x00C0}-\\u{x00D6}\\u{x00D8}-\\u{x00F6}\\u{x00F8}-\\u{x002FF}\\u{x00370}-\\u{x0037D}\\u{x0037F}-\\u{x001FFF}\\u{x00200C}-\\u{x00200D}\\u{x002070}-\\u{x00218F}\\u{x002C00}-\\u{x002FEF}\\u{x003001}-\\u{x00D7FF}\\u{x00F900}-\\u{x00FDCF}\\u{x00FDF0}-\\u{x00FFFD}\\u{x0010000}-\\u{x00EFFFF}]";
-	// static var xml_name_char = '[${xml_name_start_char}-.0-9\\u{x00B7}\\u{x0300}-\\u{x036F}\\u{x203F}-\\u{x2040}]';
-	// static var xml_name = '${xml_name_start_char}${xml_name_char}*';
+	// static var xml_name_char = '[(${xml_name_start_char})-.0-9\\u{x00B7}\\u{x0300}-\\u{x036F}\\u{x203F}-\\u{x2040}]';
+	// static var xml_name = '(${xml_name_start_char})(${xml_name_char})*';
 	static var xml_name = "[$|:A-Z_a-z\\u{x00C0}-\\u{x00D6}\\u{x00D8}-\\u{x00F6}\\u{x00F8}-\\u{x002FF}\\u{x00370}-\\u{x0037D}\\u{x0037F}-\\u{x001FFF}\\u{x00200C}-\\u{x00200D}\\u{x002070}-\\u{x00218F}\\u{x002C00}-\\u{x002FEF}\\u{x003001}-\\u{x00D7FF}\\u{x00F900}-\\u{x00FDCF}\\u{x00FDF0}-\\u{x00FFFD}\\u{x0010000}-\\u{x00EFFFF}][$|:A-Z_a-z\\u{x00C0}-\\u{x00D6}\\u{x00D8}-\\u{x00F6}\\u{x00F8}-\\u{x002FF}\\u{x00370}-\\u{x0037D}\\u{x0037F}-\\u{x001FFF}\\u{x00200C}-\\u{x00200D}\\u{x002070}-\\u{x00218F}\\u{x002C00}-\\u{x002FEF}\\u{x003001}-\\u{x00D7FF}\\u{x00F900}-\\u{x00FDCF}\\u{x00FDF0}-\\u{x00FFFD}\\u{x0010000}-\\u{x00EFFFF}\\-.0-9\\u{x00B7}\\u{x0300}-\\u{x036F}\\u{x203F}-\\u{x2040}]*";
 
 	// @:rule wraps the expression to the right of => with function(lexer) return
@@ -67,12 +72,14 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			lexer.token(tok);
 			#end
 		},
-		"0x[0-9a-fA-F]+" => mk(lexer, Const(CInt(lexer.current))),
-		integer => mk(lexer, Const(CInt(lexer.current))),
-		integer + "\\.[0-9]+" => mk(lexer, Const(CFloat(lexer.current))),
-		"\\.[0-9]+" => mk(lexer, Const(CFloat(lexer.current))),
-		integer + "[eE][\\+\\-]?[0-9]+" => mk(lexer,Const(CFloat(lexer.current))),
-		integer + "\\.[0-9]*[eE][\\+\\-]?[0-9]+" => mk(lexer,Const(CFloat(lexer.current))),
+		// '(_?[iu]($integer)+)?'
+		"0x" + hex_digits + integer_suffix => mk(lexer, splitIntSuffix(lexer.current)),
+		integer + integer_suffix => mk(lexer, splitIntSuffix(lexer.current)),
+		integer + float_suffix => mk(lexer, splitFloatSuffix(lexer.current)),
+		integer + "\\." + integer_digits + float_suffix => mk(lexer, splitFloatSuffix(lexer.current)),
+		"\\." + integer_digits + float_suffix => mk(lexer, splitFloatSuffix(lexer.current)),
+		integer + "[eE][\\+\\-]?" + integer_digits + float_suffix => mk(lexer, splitFloatSuffix(lexer.current)),
+		integer + '\\.[0-9]*[eE][\\+\\-]?' + integer_digits + float_suffix => mk(lexer, splitFloatSuffix(lexer.current)),
 		integer + "\\.\\.\\." => mk(lexer,IntInterval(lexer.current.substr(0,-3))),
 		"//[^\n\r]*" => mk(lexer, CommentLine(lexer.current.substr(2))),
 		"+\\+" => mk(lexer,Unop(OpIncrement)),
@@ -99,7 +106,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		"|\\|" => mk(lexer,Binop(OpBoolOr)),
 		"<<" => mk(lexer,Binop(OpShl)),
 		"->" => mk(lexer,Arrow),
-		"\\.\\.\\." => mk(lexer,Binop(OpInterval)),
+		"\\.\\.\\." => mk(lexer,Spread),
 		"=>" => mk(lexer,Binop(OpArrow)),
 		"!" => mk(lexer,Unop(OpNot)),
 		"<" + xml_name => inlineMarkup(lexer),
@@ -108,6 +115,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		";" => mk(lexer, Semicolon),
 		":" => mk(lexer, DblDot),
 		"," => mk(lexer, Comma),
+		"?\\." => mk(lexer, QuestionDot),
 		"\\." => mk(lexer, Dot),
 		"%" => mk(lexer,Binop(OpMod)),
 		"&" => mk(lexer,Binop(OpAnd)),
@@ -118,7 +126,6 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		"/" => mk(lexer,Binop(OpDiv)),
 		"-" => mk(lexer,Binop(OpSub)),
 		"=" => mk(lexer,Binop(OpAssign)),
-		"in" => mk(lexer,Binop(OpIn)),
 		"[" => mk(lexer, BkOpen),
 		"]" => mk(lexer, BkClose),
 		"{" => mk(lexer, BrOpen),
@@ -411,6 +418,37 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		lexer.pos = endPos;
 
 		return mk(lexer, Const(CMarkup(text)));
+	}
+
+	static function splitSuffix(value:String, pivot:Int, isInt:Bool) {
+		var literal = value.substr(0, pivot);
+		var suffix = value.substr(pivot);
+		if (StringTools.endsWith(literal, "_")) {
+			literal = literal.substr(0, literal.length-1);
+		}
+		if (isInt) {
+			return Const(CInt(literal, suffix));
+		}
+		return Const(CFloat(literal, suffix));
+	}
+
+	static function splitIntSuffix(value:String) {
+		var index = value.indexOf("i");
+		if (index <= 0) {
+			index = value.indexOf("u");
+		}
+		if (index <= 0) {
+			return Const(CInt(value));
+		}
+		return splitSuffix(value, index, true);
+	}
+
+	static function splitFloatSuffix(value:String) {
+		var index = value.indexOf("f");
+		if (index <= 0) {
+			return Const(CFloat(value));
+		}
+		return splitSuffix(value, index, false);
 	}
 
 	static inline function unescapePos(pos:Position, index:Int, length:Int) {

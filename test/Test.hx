@@ -47,6 +47,114 @@ class Test implements ITest {
 		eeq("13.14E-12");
 	}
 
+	#if (haxe >= version("4.3.0-rc.1"))
+	function testIntSuffixes() {
+		eeq("7i32");
+        eeq("-7i32");
+        eeq("-1u32");
+        eeq("3000000000000i64");
+        eeq("9223372036854775807i64");
+	}
+
+	function testFloatSuffixes() {
+		eeq("7.0f64");
+        eeq("-7.0f64");
+        eeq("1f64");
+        eeq(".0f64");
+        eeq("7e+0f64");
+        eeq("7.0e+0f64");
+	}
+
+	function testHexSuffixes() {
+		eeq("0xFFFFFFFFu32");
+        eeq("0xFFFFFFFFi64");
+        eeq("0xFFFFFFFFFFFFFFFFi64");
+        eeq("0x7FFFFFFFFFFFFFFFi64");
+	}
+
+	public function testNumericSeparator() {
+		// normal int
+		eeq("12_0");
+		eeq("1_2_0");
+
+		// hex int
+		eeq("0x12_0");
+		eeq("0x1_2_0");
+
+		// normal float
+		eeq("12.3_4");
+		eeq("1_2.34");
+		eeq("1_2.3_4");
+
+		// dot float
+		eeq(".3_4");
+		eeq(".3_4_5");
+
+		// science float
+		eeq("1_2e3_4");
+		eeq("1_2.3e4_5");
+
+		// int but actually float
+		eeq("1_2f64");
+	}
+
+	public function testNumericSeparatorWithSuffix() {
+		// normal int
+		eeq("12_0i32");
+		eeq("1_2_0i32");
+
+		// hex int
+		eeq("0x12_0i32");
+		eeq("0x1_2_0i32");
+
+		// normal float
+		eeq("12.3_4f64");
+		eeq("1_2.34f64");
+		eeq("1_2.3_4f64");
+
+		// dot float
+		eeq(".3_4f64");
+		eeq(".3_4_5f64");
+
+		// science float
+		eeq("1_2e3_4f64");
+		eeq("1_2.3e4_5f64");
+	}
+
+	public function testNumericSeparatorJustBeforeSuffix() {
+		// normal int
+		eeq("12_0_i32", "12_0i32");
+		eeq("1_2_0_i32", "1_2_0i32");
+
+		// hex int
+		eeq("0x12_0_i32", "0x12_0i32");
+		eeq("0x1_2_0_i32", "0x1_2_0i32");
+
+		// normal float
+		eeq("12.3_4_f64", "12.3_4f64");
+		eeq("1_2.34_f64", "1_2.34f64");
+		eeq("1_2.3_4_f64", "1_2.3_4f64");
+
+		// dot float
+		eeq(".3_4_f64", ".3_4f64");
+		eeq(".3_4_5_f64", ".3_4_5f64");
+
+		// science float
+		eeq("1_2e3_4_f64", "1_2e3_4f64");
+		eeq("1_2.3e4_5_f64", "1_2.3e4_5f64");
+
+		eeq("1_2e+3_4_f64", "1_2e+3_4f64");
+		eeq("1_2.3e+4_5_f64", "1_2.3e+4_5f64");
+		eeq("1_2e-3_4_f64", "1_2e-3_4f64");
+		eeq("1_2.3e-4_5_f64", "1_2.3e-4_5f64");
+
+		eeq("-1_2e+3_4_f64", "-1_2e+3_4f64");
+		eeq("-1_2.3e+4_5_f64", "-1_2.3e+4_5f64");
+		eeq("-1_2e-3_4_f64", "-1_2e-3_4f64");
+		eeq("-1_2.3e-4_5_f64", "-1_2.3e-4_5f64");
+	}
+	#end
+
 	function testArrayAccess() {
 		eeq("a[1]");
 		eeq("a[1][2]");
@@ -150,6 +258,10 @@ class Test implements ITest {
 	function testVars() {
 		eeq("var x");
 		eeq("var x = 1");
+		eeq("var gen:Gen<true> = null");
+		#if (haxe >= version("4.3.0-rc.1"))
+		eeq("var gen:Gen<-1i64> = null");
+		#end
 	}
 
 	function testFunction() {
@@ -628,12 +740,34 @@ class Test implements ITest {
 		peq("function methodWithRest(rest:Rest<Int>):Rest<Int> {return super.methodWithRest(...rest.append(999));}");
 	}
 
-	function testimport() {
+	function testImport() {
+		expectParseSuccess('import haxe.macro.function.Test;', true);
+		expectParseSuccess('import haxe.macro.function.*;', true);
+		expectParseSuccess('import haxe.macro.function.Test in Test2;', true);
+		expectParseSuccess('import haxe.macro.function.Test as Test2;', true);
+		expectParseSuccess('import extern.Test;', true);
+
+		expectParseSuccess('import haxe.this.function.Test;', false);
+		expectParseSuccess('import haxe.macro.function.Test in Test2.*;', false);
+		expectParseSuccess('import haxe.macro.function.Test in Test.Test2;', false);
+	}
+
+	function testUsing() {
+		expectParseSuccess('using haxe.macro.function.Test;', true);
+		expectParseSuccess('using StringTools;', true);
+		expectParseSuccess('using extern.Test;', true);
+
+		expectParseSuccess('using this.Test;', false);
+		expectParseSuccess('using haxe.macro.function.*;', false);
+		expectParseSuccess('using StringTools as Tools;', false);
+	}
+
+	function expectParseSuccess(inputCode:String, success:Bool, ?p:haxe.PosInfos) {
 		try {
-			parseFile('import haxe.macro.function.Test;');
-			Assert.isTrue(true);
+			parseFile(inputCode);
+			Assert.isTrue(success, p);
 		} catch (e:haxe.Exception) {
-			Assert.isTrue(false);
+			Assert.isFalse(success, p);
 		}
 	}
 
@@ -678,6 +812,8 @@ class Test implements ITest {
 
 		peq("var SRC = <xml/>;", "var SRC = @:markup \"<xml/>\";");
 		peq("var SRC = <xml abc />;", "var SRC = @:markup \"<xml abc />\";");
+
+		peq("var SRC = <xml:haxe <xml> </xml:haxe>;", "var SRC = @:markup \"<xml:haxe <xml> </xml:haxe>\";");
 
 		peq("var SRC = <syntax-test>for( x in arr )<custom(x)/>for( y in arr ) {<custom(y)/><custom(y)/>}</syntax-test>;", "var SRC = @:markup \"<syntax-test>for( x in arr )<custom(x)/>for( y in arr ) {<custom(y)/><custom(y)/>}</syntax-test>\";");
 
