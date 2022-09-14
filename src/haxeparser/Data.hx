@@ -30,6 +30,7 @@ enum Keyword {
 	KwdThrow;
 	KwdExtern;
 	KwdEnum;
+	KwdIn;
 	KwdInterface;
 	KwdUntyped;
 	KwdCast;
@@ -79,6 +80,7 @@ class KeywordPrinter {
 			case KwdThrow: "throw";
 			case KwdExtern: "extern";
 			case KwdEnum: "enum";
+			case KwdIn: "in";
 			case KwdInterface: "interface";
 			case KwdUntyped: "untyped";
 			case KwdCast: "cast";
@@ -101,31 +103,32 @@ class KeywordPrinter {
 }
 
 enum TokenDef {
-	Kwd(k:Keyword);
+	Eof;
 	Const(c:Constant);
-	Sharp(s:String);
-	Dollar(s:String);
-	Unop(op:haxe.macro.Expr.Unop);
-	Binop(op:haxe.macro.Expr.Binop);
+	Kwd(k:Keyword);
 	Comment(s:String);
 	CommentLine(s:String);
-	IntInterval(s:String);
+	Binop(op:haxe.macro.Expr.Binop);
+	Unop(op:haxe.macro.Expr.Unop);
 	Semicolon;
-	Dot;
-	DblDot;
-	Arrow;
 	Comma;
-	BkOpen;
-	BkClose;
 	BrOpen;
 	BrClose;
+	BkOpen;
+	BkClose;
 	POpen;
 	PClose;
+	Dot;
+	DblDot;
+	QuestionDot;
+	Arrow;
+	IntInterval(s:String);
+	Sharp(s:String);
 	Question;
 	At;
-	Eof;
+	Dollar(s:String);
+	Spread;
 }
-
 
 enum Constant {
 	CInt(v:String, ?s:String);
@@ -139,22 +142,14 @@ enum Constant {
 class TokenDefPrinter {
 	static public function toString(def:TokenDef) {
 		return switch(def) {
+			case Eof: "<eof>";
+			case Const(const): constToString(const);
 			case Kwd(k): k.getName().substr(3).toLowerCase();
-			case Const(CInt(s) | CFloat(s) | CIdent(s)): s;
-			case Const(CString(s)): '"$s"';
-			case Const(CRegexp(r, opt)): '~/$r/$opt';
-			case Const(CMarkup(s)): s;
-			case Sharp(s): '#$s';
-			case Dollar(s): '$$$s';
-			case Unop(op): new haxe.macro.Printer("").printUnop(op);
-			case Binop(op): new haxe.macro.Printer("").printBinop(op);
 			case Comment(s): '/*$s*/';
 			case CommentLine(s): '//$s';
-			case IntInterval(s): '$s...';
+			case Binop(op): new haxe.macro.Printer("").printBinop(op);
+			case Unop(op): new haxe.macro.Printer("").printUnop(op);
 			case Semicolon: ";";
-			case Dot: ".";
-			case DblDot: ":";
-			case Arrow: "->";
 			case Comma: ",";
 			case BkOpen: "[";
 			case BkClose: "]";
@@ -162,9 +157,43 @@ class TokenDefPrinter {
 			case BrClose: "}";
 			case POpen: "(";
 			case PClose: ")";
+			case Dot: ".";
+			case DblDot: ":";
+			case QuestionDot: "?.";
+			case Arrow: "->";
+			case IntInterval(s): '$s...';
+			case Sharp(s): '#$s';
 			case Question: "?";
 			case At: "@";
-			case Eof: "<eof>";
+			case Dollar(s): '$$$s';
+			case Spread: "...";
+		}
+	}
+
+
+	static public function constToString(const:Constant) {
+		return switch (const) {
+			case CInt(v, null):
+				v;
+			case CInt(v, s):
+				'$v$s';
+			case CFloat(f, null):
+				f;
+			case CFloat(f, s):
+				'$f$s';
+			case CString(s, kind):
+				switch (kind) {
+					case null | DoubleQuotes:
+						'"$s"';
+					case SingleQuotes:
+						'\'$s\'';
+				}
+			case CIdent(s):
+				s;
+			case CRegexp(r, opt):
+				'~/$r/$opt';
+			case CMarkup(s):
+				s;
 		}
 	}
 
