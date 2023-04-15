@@ -13,16 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        haxe-version: ['4.2.5', 'nightly']
+        haxe-version: ['4.3.0', 'nightly']
     steps:
     - name: Checkout sources
       uses: actions/checkout@v1
     - name: install Hashlink
       uses: pxshadow/setup-hashlink@v1.0.1
-    - name: Use Node.js 10
+    - name: Use Node.js 12
       uses: actions/setup-node@v1
       with:
-        node-version: 10
+        node-version: 12
     - name: Run npm install
       run: npm ci
     - name: Install Haxe version ${{ matrix.haxe-version }}

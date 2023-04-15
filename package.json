@@ -11,7 +11,7 @@
         "haxe"
     ],
     "devDependencies": {
-        "lix": "^15.11.6"
+        "lix": "^15.12.0"
     },
     "bugs": "https://github.com/HaxeCheckstyle/haxeparser/issues",
     "license": "BSD"
