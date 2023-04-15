@@ -215,7 +215,7 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 		return {tk:None, expr:{expr:EConst(CIdent(t)), pos:p}};
 	}
 }
-@:enum abstract SkipState(Int){
+enum abstract SkipState(Int){
 	var Consume    = 0;       // consume current branch
 	var SkipBranch = 1;       // skip until next #elsif/#else
 	var SkipRest   = 2;       // skip until #end
@@ -2311,10 +2311,13 @@ private class Reificator{
 			case ADynamic:  "ADynamic";
 			case AInline:   "AInline";
 			case AMacro:    "AMacro";
-			case AFinal:     "AFinal";
+			case AFinal:    "AFinal";
 			case AExtern:   "AExtern";
-			case AAbstract:    "AAbstract";
-			case AOverload:   "AOverload";
+			case AAbstract: "AAbstract";
+			case AOverload: "AOverload";
+			#if (haxe > version("4.3.0"))
+			case AEnum:     "AEnum";
+			#end
 		}
 		return mkEnum("Access", n, [], p);
 	}
