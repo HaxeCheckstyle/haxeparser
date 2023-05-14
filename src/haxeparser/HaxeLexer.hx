@@ -72,7 +72,6 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			lexer.token(tok);
 			#end
 		},
-		// '(_?[iu]($integer)+)?'
 		"0x" + hex_digits + integer_suffix => mk(lexer, splitIntSuffix(lexer.current)),
 		integer + integer_suffix => mk(lexer, splitIntSuffix(lexer.current)),
 		integer + float_suffix => mk(lexer, splitFloatSuffix(lexer.current)),
@@ -304,6 +303,14 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		"\\\\[wWbBsSdDx]" => {
 			buf.add(lexer.current);
 			lexer.token(regexp);
+		},
+		"\\\\[uU][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]" => {
+			buf.add(lexer.current);
+			lexer.token(regexp);
+		},
+		"\\[^\\]" => {
+			var pmin = lexer.curPos();
+			throw new LexerError(UnterminatedRegExp, mkPos(pmin));
 		},
 		"/" => {
 			lexer.token(regexp_options);

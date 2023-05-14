@@ -1,6 +1,6 @@
 {
     "name": "haxeparser",
-    "version": "4.3.0-rc.1",
+    "version": "4.3.0",
     "description": "A Haxe parser for Haxe",
     "repository": {
         "type": "git",

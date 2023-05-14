@@ -2315,7 +2315,7 @@ private class Reificator{
 			case AExtern:   "AExtern";
 			case AAbstract: "AAbstract";
 			case AOverload: "AOverload";
-			#if (haxe > version("4.3.0"))
+			#if (haxe >= version("5.0.0-alpha"))
 			case AEnum:     "AEnum";
 			#end
 		}

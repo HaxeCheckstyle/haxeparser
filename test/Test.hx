@@ -771,6 +771,10 @@ class Test implements ITest {
 		}
 	}
 
+	function testRegex() {
+		peq("var regex = ~/[\\u0000-\\u001F\\u007F-\\u009F\\u2000-\\u200D\\uFEFF]/g;");
+	}
+
 	#if (haxe >= version("4.3.0-rc.1"))
 	function testDefaultTypeParams() {
 		peq("class DefaultTPClass_y<T=String> {}");
@@ -819,6 +823,7 @@ class Test implements ITest {
 
 		peq('var SRC = <c><flow class="xcdkfdskf-xxxx"/></c>;', 'var SRC = @:markup "<c><flow class=\\"xcdkfdskf-xxxx\\"/></c>";');
 	}
+
 	#end
 
 	function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
