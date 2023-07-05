@@ -507,16 +507,15 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 			case OpAdd | OpSub : {p: 3, left: left};
 			case OpShl | OpShr | OpUShr : {p: 4, left: left};
 			case OpOr | OpAnd | OpXor : {p: 5, left: left};
-			case OpEq | OpNotEq | OpGt | OpLt | OpGte | OpLte : {p: 6, left: left};
-			case OpInterval : {p: 7, left: left};
-			case OpBoolAnd : {p: 8, left: left};
-			case OpBoolOr : {p: 9, left: left};
 			#if (haxe >= version("4.3.0-rc.1"))
-			case OpArrow | OpNullCoal : {p: 10, left: right};
-			#else
-			case OpArrow : {p: 10, left: right};
+			case OpNullCoal: {p: 6, left: left};
 			#end
-			case OpAssign | OpAssignOp(_) : {p:11, left:right};
+			case OpEq | OpNotEq | OpGt | OpLt | OpGte | OpLte : {p: 7, left: left};
+			case OpInterval : {p: 8, left: left};
+			case OpBoolAnd : {p: 9, left: left};
+			case OpBoolOr : {p: 10, left: left};
+			case OpArrow : {p: 11, left: right};
+			case OpAssign | OpAssignOp(_) : {p:12, left:right};
 		}
 	}
 
@@ -740,7 +739,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseAbstract (doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag, s:StaticFlag, pos:Position}>, p1) {
+	function parseAbstract (doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:haxeparser.AbstractFlag, s:StaticFlag, pos:Position}>, p1) {
 		return switch stream {
 			case [name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = parseRepeat(parseAbstractRelations)]:
 				var fl = switch stream {
@@ -748,8 +747,8 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 						fl;
 				}
 				var aflags = flags.map(function(i) return i.a);
-				if (st != null){
-					aflags.push(AIsType(st));
+				if (st != null) {
+					aflags.push(AbOver(st));
 				}
 				{ decl: EAbstract({
 					name: name,
@@ -762,7 +761,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseClassContent(doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag, s:StaticFlag, pos:Position}>, n, p1) {
+	function parseClassContent(doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:haxeparser.AbstractFlag, s:StaticFlag, pos:Position}>, n, p1) {
 		var name = typeName();
 		var tl = parseConstraintParams();
 		var hl = parseRepeat(parseClassHerit);
@@ -837,7 +836,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 							}
 					case [{tok:Kwd(KwdEnum), pos:p1}]:
 						switch stream {
-							case [{tok:Kwd(KwdAbstract), pos:p1}, a = parseAbstract(doc, [{name: ":enum", params: [], pos: p1}].concat(meta), c, p1)]:
+							case [{tok:Kwd(KwdAbstract), pos:p1}, a = parseAbstract(doc, meta, c.concat([{{c:null, e:null, a:AbEnum, s:null, pos:null}}]), p1)]:
 								{ decl: a.decl, pos: punion(p1, a.pos)};
 							case [name = typeName(), tl = parseConstraintParams(), {tok:BrOpen}, l = parseRepeat(parseEnum), {tok:BrClose, pos: p2}]:
 								{decl: EEnum({
@@ -998,10 +997,10 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseAbstractRelations() {
+	function parseAbstractRelations():haxeparser.AbstractFlag {
 		return switch stream {
-			case [{tok:Const(CIdent("to"))}, t = parseComplexType()]: AToType(t);
-			case [{tok:Const(CIdent("from"))}, t = parseComplexType()]: AFromType(t);
+			case [{tok:Const(CIdent("to"))}, t = parseComplexType()]: AbTo(t);
+			case [{tok:Const(CIdent("from"))}, t = parseComplexType()]: AbFrom(t);
 		}
 	}
 
@@ -1033,10 +1032,10 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return parseRepeat(parseClassField);
 	}
 
-	function parseCommonFlags():Array<{c:ClassFlag, e:EnumFlag, a:AbstractFlag, s:StaticFlag, pos:Position}> {
+	function parseCommonFlags():Array<{c:ClassFlag, e:EnumFlag, a:haxeparser.AbstractFlag, s:StaticFlag, pos:Position}> {
 		return switch stream {
-			case [{tok:Kwd(KwdPrivate), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HPrivate, e:EPrivate, a:APrivAbstract, s:SPrivate, pos:p});
-			case [{tok:Kwd(KwdExtern), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HExtern, e:EExtern, a:AExtern, s:null, pos:p});
+			case [{tok:Kwd(KwdPrivate), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HPrivate, e:EPrivate, a:AbPrivate, s:SPrivate, pos:p});
+			case [{tok:Kwd(KwdExtern), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HExtern, e:EExtern, a:AbExtern, s:null, pos:p});
 			case [{tok:Kwd(KwdFinal), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HFinal, e:null, a:null, s:SFinal, pos:p});
 			case [{tok:Kwd(KwdMacro), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:SMacro, pos:p});
 			case [{tok:Kwd(KwdDynamic), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:null, e:null, a:null, s:SDynamic, pos:p});

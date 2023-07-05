@@ -659,7 +659,11 @@ class Test implements ITest {
 		peq("enum C {}", "enum C {}");
 
 		peq("@:enum abstract C(Int) {}", "@:enum abstract C(Int) {}");
+		#if (haxe >= version ("5.0.0-alpha.1"))
+		peq("enum abstract C(Int) {}", "enum abstract C(Int) {}");
+		#else
 		peq("enum abstract C(Int) {}", "@:enum abstract C(Int) {}");
+		#end
 
 		peq("abstract Any(Dynamic) {extern inline static function __cast<T>(value:T):Any return cast value;}",
 			"abstract Any(Dynamic) {extern inline static function __cast<T>(value:T):Any return cast value;}");

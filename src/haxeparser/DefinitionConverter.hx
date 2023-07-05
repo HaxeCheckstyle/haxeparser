@@ -62,22 +62,33 @@ class DefinitionConverter {
 		return def;
 	}
 
-	static function convertAbstract(a:Definition<AbstractFlag, Array<Field>>) {
+	static function convertAbstract(a:Definition<haxeparser.AbstractFlag, Array<Field>>) {
 		var def = getGeneralDefinition(a);
 		var to = [];
 		var from = [];
+		var flags = [];
 		var thisT = null;
+
 		for (flag in a.flags) {
 			switch(flag) {
-				case AFromType(t): from.push(t);
-				case AToType(t): to.push(t);
-				case AIsType(t): thisT = t;
-				case APrivAbstract:
-				case AExtern: def.isExtern = true;
+				case AbFrom(t): from.push(t);
+				case AbTo(t): to.push(t);
+				case AbOver(t): thisT = t;
+				case AbPrivate:
+				#if (haxe >= version ("5.0.0-alpha.1"))
+				case AbEnum: flags.push(haxe.macro.Expr.AbstractFlag.AbEnum);
+				#else
+				case AbEnum: def.meta = [{name: ":enum", params: [], pos: null}].concat(def.meta);
+				#end
+				case AbExtern: def.isExtern = true;
 			}
 		}
 		def.fields = a.data;
+		#if (haxe >= version ("5.0.0-alpha.1"))
+		def.kind = TDAbstract(thisT, flags, from, to);
+		#else
 		def.kind = TDAbstract(thisT, from, to);
+		#end
 		return def;
 	}
 

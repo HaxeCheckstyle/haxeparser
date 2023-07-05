@@ -242,7 +242,7 @@ enum TypeDef {
 	EClass(d:Definition<ClassFlag, Array<Field>>);
 	EEnum(d:Definition<EnumFlag, Array<EnumConstructor>>);
 	ETypedef(d:Definition<EnumFlag, ComplexType>);
-	EAbstract(a:Definition<AbstractFlag, Array<Field>>);
+	EAbstract(a:Definition<haxeparser.AbstractFlag, Array<Field>>);
 	EStatic(s:Definition<StaticFlag, FieldType>);
 	EImport(sl:Array<{pack:String, pos:Position}>, mode:ImportMode);
 	EUsing(path:TypePath);
@@ -264,11 +264,12 @@ enum ClassFlag {
 }
 
 enum AbstractFlag {
-	APrivAbstract;
-	AFromType(ct:ComplexType);
-	AToType(ct:ComplexType);
-	AIsType(ct:ComplexType);
-	AExtern;
+	AbPrivate;
+	AbFrom(ct:ComplexType);
+	AbTo(ct:ComplexType);
+	AbOver(ct:ComplexType);
+	AbExtern;
+	AbEnum;
 }
 
 enum EnumFlag {
