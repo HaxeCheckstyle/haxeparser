@@ -60,11 +60,6 @@ class HaxeCondParser extends hxparse.Parser<hxparse.LexerTokenSource<Token>, Tok
 				{tk:None, expr:{expr:EConst(CInt(i)), pos:p}};
 			case [{tok:Const(CFloat(f)), pos:p}]:
 				{tk:None, expr:{expr:EConst(CFloat(f)), pos:p}};
-			#else
-			case [{tok:Const(CInt(i)), pos:p}]:
-				{tk:None, expr:{expr:EConst(CInt(i)), pos:p}};
-			case [{tok:Const(CFloat(f)), pos:p}]:
-				{tk:None, expr:{expr:EConst(CFloat(f)), pos:p}};
 			#end
 			case [{tok:Kwd(k), pos:p}]:
 				parseMacroIdent(allowOp, HaxeParser.keywordString(k), p);
