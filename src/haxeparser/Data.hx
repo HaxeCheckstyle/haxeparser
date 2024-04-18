@@ -241,7 +241,7 @@ typedef Definition<A,B> = {
 enum TypeDef {
 	EClass(d:Definition<ClassFlag, Array<Field>>);
 	EEnum(d:Definition<EnumFlag, Array<EnumConstructor>>);
-	ETypedef(d:Definition<EnumFlag, ComplexType>);
+	ETypedef(d:Definition<TypedefFlag, ComplexType>);
 	EAbstract(a:Definition<haxeparser.AbstractFlag, Array<Field>>);
 	EStatic(s:Definition<StaticFlag, FieldType>);
 	EImport(sl:Array<{pack:String, pos:Position}>, mode:ImportMode);
@@ -275,6 +275,11 @@ enum AbstractFlag {
 enum EnumFlag {
 	EPrivate;
 	EExtern;
+}
+
+enum TypedefFlag {
+	TDPrivate;
+	TDExtern;
 }
 
 enum StaticFlag {

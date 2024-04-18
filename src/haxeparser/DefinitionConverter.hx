@@ -56,7 +56,7 @@ class DefinitionConverter {
 		return def;
 	}
 
-	static function convertTypedef(t:Definition<EnumFlag, ComplexType>) {
+	static function convertTypedef(t:Definition<TypedefFlag, ComplexType>) {
 		var def = getGeneralDefinition(t);
 		def.kind = TDAlias(t.data);
 		return def;

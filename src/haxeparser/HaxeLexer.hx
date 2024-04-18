@@ -50,6 +50,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 	static var integer_digits = '([0-9](_?[0-9])*)+';
 	static var integer = '([1-9](_?[0-9])*)|0';
 	static var hex_digits = '([0-9a-fA-F](_?[0-9a-fA-F])*)+';
+	static var bin_digits = '([01](_?[01])*)+';
 
 	static var integer_suffix = "(_?[iu](([1-9](_?[0-9])*)|0)+)?";
 	static var float_suffix = "(_?f(([1-9](_?[0-9])*)|0)+)?";
@@ -73,6 +74,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 			#end
 		},
 		"0x" + hex_digits + integer_suffix => mk(lexer, splitIntSuffix(lexer.current)),
+		"0b" + bin_digits + integer_suffix => mk(lexer, splitIntSuffix(lexer.current)),
 		integer + integer_suffix => mk(lexer, splitIntSuffix(lexer.current)),
 		integer + float_suffix => mk(lexer, splitFloatSuffix(lexer.current)),
 		integer + "\\." + integer_digits + float_suffix => mk(lexer, splitFloatSuffix(lexer.current)),
@@ -95,9 +97,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		"<<=" => mk(lexer,Binop(OpAssignOp(OpShl))),
 		"|\\|=" => mk(lexer,Binop(OpAssignOp(OpBoolOr))),
 		"&&=" => mk(lexer,Binop(OpAssignOp(OpBoolAnd))),
-		#if (haxe >= version("4.3.0-rc.1"))
 		"?\\?=" => mk(lexer,Binop(OpAssignOp(OpNullCoal))),
-		#end
 		"==" => mk(lexer,Binop(OpEq)),
 		"!=" => mk(lexer,Binop(OpNotEq)),
 		"<=" => mk(lexer,Binop(OpLte)),
@@ -131,9 +131,7 @@ class HaxeLexer extends Lexer implements hxparse.RuleBuilder {
 		"}" => mk(lexer, BrClose),
 		"\\(" => mk(lexer, POpen),
 		"\\)" => mk(lexer, PClose),
-		#if (haxe >= version("4.3.0-rc.1"))
 		"?\\?" => mk(lexer,Binop(OpNullCoal)),
-		#end
 		"?" => mk(lexer, Question),
 		"@" => mk(lexer, At),
 		'"' => {

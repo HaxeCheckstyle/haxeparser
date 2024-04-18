@@ -10,8 +10,10 @@
         "test-adapter"
     ],
     "editor.codeActionsOnSave": {
-        "source.organizeImports": false,
-        "source.sortImports": false
+        "source.organizeImports": "never",
+        "source.sortImports": "never"
     },
-    "haxe.enableExtendedIndentation": true
+    "haxe.enableExtendedIndentation": true,
+    "haxe.enableCompilationServer": false,
+	"editor.inlayHints.enabled": "off"
 }

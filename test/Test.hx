@@ -47,7 +47,6 @@ class Test implements ITest {
 		eeq("13.14E-12");
 	}
 
-	#if (haxe >= version("4.3.0-rc.1"))
 	function testIntSuffixes() {
 		eeq("7i32");
         eeq("-7i32");
@@ -81,6 +80,12 @@ class Test implements ITest {
 		eeq("0x12_0");
 		eeq("0x1_2_0");
 
+		#if (haxe >= version("5.0.0-alpha.1"))
+		// bin int
+		eeq("0b11_0");
+		eeq("0b1_1_0");
+		#end
+
 		// normal float
 		eeq("12.3_4");
 		eeq("1_2.34");
@@ -107,6 +112,12 @@ class Test implements ITest {
 		eeq("0x12_0i32");
 		eeq("0x1_2_0i32");
 
+		#if (haxe >= version("5.0.0-alpha.1"))
+		// bin int
+		eeq("0b11_0i32");
+		eeq("0b1_1_0i32");
+		#end
+
 		// normal float
 		eeq("12.3_4f64");
 		eeq("1_2.34f64");
@@ -129,6 +140,12 @@ class Test implements ITest {
 		// hex int
 		eeq("0x12_0_i32", "0x12_0i32");
 		eeq("0x1_2_0_i32", "0x1_2_0i32");
+
+		#if (haxe >= version("5.0.0-alpha.1"))
+		// bin int
+		eeq("0b11_0_i32", "0b11_0i32");
+		eeq("0b1_1_0_i32", "0b1_1_0i32");
+		#end
 
 		// normal float
 		eeq("12.3_4_f64", "12.3_4f64");
@@ -153,6 +170,28 @@ class Test implements ITest {
 		eeq("-1_2e-3_4_f64", "-1_2e-3_4f64");
 		eeq("-1_2.3e-4_5_f64", "-1_2.3e-4_5f64");
 	}
+
+	#if (haxe >= version("5.0.0-alpha.1"))
+	function testIntLiterals() {
+		eeq("0xF");
+		eeq("0xFF");
+		eeq("0x12345678");
+		eeq("0x09ABCDEF");
+
+		eeq("0b0");
+		eeq("0b1");
+		eeq("0b10");
+		eeq("0b1000");
+		eeq("0b11111111111111111111111111111111");
+	}
+
+	public function testBinSuffixes() {
+        eeq("0b11111111111111111111111111111111i32");
+        eeq("0b11111111111111111111111111111111u32");
+        eeq("0b11111111111111111111111111111111i64");
+        eeq("0b1111111111111111111111111111111111111111111111111111111111111111i64");
+        eeq("0b0111111111111111111111111111111111111111111111111111111111111111i64");
+    }
 	#end
 
 	function testArrayAccess() {
@@ -184,9 +223,7 @@ class Test implements ITest {
 		eeq("1 % 1");
 		eeq("1 ... 1");
 		eeq("1 => 1");
-		#if (haxe >= version("4.3.0-rc.1"))
 		eeq("1 ?? 1");
-		#end
 	}
 
 	function testAssignOps() {
@@ -200,9 +237,7 @@ class Test implements ITest {
 		eeq("1 ^= 1");
 		eeq("1 &&= 1");
 		eeq("1 ||= 1");
-		#if (haxe >= version("4.3.0-rc.1"))
 		eeq("1 ??= 1");
-		#end
 		eeq("1 <<= 1");
 		eeq("1 >>= 1");
 		eeq("1 >>>= 1");
@@ -259,9 +294,7 @@ class Test implements ITest {
 		eeq("var x");
 		eeq("var x = 1");
 		eeq("var gen:Gen<true> = null");
-		#if (haxe >= version("4.3.0-rc.1"))
 		eeq("var gen:Gen<-1i64> = null");
-		#end
 	}
 
 	function testFunction() {
@@ -330,9 +363,7 @@ class Test implements ITest {
 		paeq("a => b in c", "(a => (b in c))");
 		paeq("a = b in c", "(a = (b in c))");
 		paeq("a += b in c", "(a += (b in c))");
-		#if (haxe >= version("4.3.0-rc.1"))
 		paeq("a ?? b in c", "(a ?? (b in c))");
-		#end
 	}
 
 	function testIf() {
@@ -424,7 +455,12 @@ class Test implements ITest {
 		peq("class C extends A implements B implements C {}");
 		peq("class C<A> {}");
 		peq("class C<A, B> {}");
+		#if (haxe >= version("5.0.0-alpha.1"))
+		peq("class C<A:(Int), B:(Float & String)> {}");
+		peq("class C<A:(Int), B:(Float, String)> {}", "class C<A:(Int), B:(Float & String)> {}");
+		#else
 		peq("class C<A:(Int), B:(Float, String)> {}");
+		#end
 		peq("abstract class C {}");
 	}
 
@@ -450,7 +486,12 @@ class Test implements ITest {
 		peq("enum E {}");
 		peq("enum E<A> {}");
 		peq("enum E<A, B> {}");
+		#if (haxe >= version("5.0.0-alpha.1"))
+		peq("enum E<A:(Int), B:(Float & String)> {}");
+		peq("enum E<A:(Int), B:(Float, String)> {}", "enum E<A:(Int), B:(Float & String)> {}");
+		#else
 		peq("enum E<A:(Int), B:(Float, String)> {}");
+		#end
 	}
 
 	function testEnumField() {
@@ -558,17 +599,10 @@ class Test implements ITest {
 		eeq("macro $i{a};",         '({ expr : EConst(CIdent(a)), pos : { file : "main:0", min : 8, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
 		//eeq("macro $p{a};",       '',fakePosInfos); // ???
 		//eeq("macro $v{a};",       '',fakePosInfos); // ???
-		#if (haxe >= version("4.3.0-rc.1"))
 		eeq("macro var a;",         '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : false, isStatic : false, meta : [] }]), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
 		eeq("macro final a;",       '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : true, isStatic : false, meta : [] }]), pos : { file : "main:0", min : 6, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
 		eeq("macro final @meta a;", '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : true, isStatic : false, meta : [{ name : "meta", params : [], pos : { file : "main:0", min : 12, max : 17 } }] }]), pos : { file : "main:0", min : 6, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
 		eeq("macro @meta var a;",   '({ expr : EMeta({ name : "meta", params : [], pos : { file : "main:0", min : 6, max : 15 } }, { expr : EVars([{ name : "a", type : null, expr : null, isFinal : false, isStatic : false, meta : [] }]), pos : { file : "main:0", min : 12, max : 15 } }), pos : { file : "main:0", min : 6, max : 15 } } : haxe.macro.Expr)',fakePosInfos);
-		#else
-		eeq("macro var a;",         '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : false, meta : [] }]), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro final a;",       '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : true, meta : [] }]), pos : { file : "main:0", min : 6, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro final @meta a;", '({ expr : EVars([{ name : "a", type : null, expr : null, isFinal : true, meta : [{ name : "meta", params : [], pos : { file : "main:0", min : 12, max : 17 } }] }]), pos : { file : "main:0", min : 6, max : 11 } } : haxe.macro.Expr)',fakePosInfos);
-		eeq("macro @meta var a;",   '({ expr : EMeta({ name : "meta", params : [], pos : { file : "main:0", min : 6, max : 15 } }, { expr : EVars([{ name : "a", type : null, expr : null, isFinal : false, meta : [] }]), pos : { file : "main:0", min : 12, max : 15 } }), pos : { file : "main:0", min : 6, max : 15 } } : haxe.macro.Expr)',fakePosInfos);
-		#end
 		eeq("macro f();",           '({ expr : ECall({ expr : EConst(CIdent("f")), pos : { file : "main:0", min : 6, max : 7 } }, []), pos : { file : "main:0", min : 6, max : 9 } } : haxe.macro.Expr)',fakePosInfos);
 		eeq("macro :Array;",        '(TPath({ pack : [], name : "Array", params : [] }) : haxe.macro.Expr.ComplexType)',fakePosInfos);
 
@@ -779,7 +813,6 @@ class Test implements ITest {
 		peq("var regex = ~/[\\u0000-\\u001F\\u007F-\\u009F\\u2000-\\u200D\\uFEFF]/g;");
 	}
 
-	#if (haxe >= version("4.3.0-rc.1"))
 	function testDefaultTypeParams() {
 		peq("class DefaultTPClass_y<T=String> {}");
 		peq("class DefaultTPClass_yn<S=String, T> {}");
@@ -827,8 +860,6 @@ class Test implements ITest {
 
 		peq('var SRC = <c><flow class="xcdkfdskf-xxxx"/></c>;', 'var SRC = @:markup "<c><flow class=\\"xcdkfdskf-xxxx\\"/></c>";');
 	}
-
-	#end
 
 	function parseExpr(inputCode:String, ?p:haxe.PosInfos) {
 		var parser = new haxeparser.HaxeParser(byte.ByteData.ofString(inputCode), '${p.methodName}:${p.lineNumber}');
