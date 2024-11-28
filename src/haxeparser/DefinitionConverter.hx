@@ -62,7 +62,7 @@ class DefinitionConverter {
 		return def;
 	}
 
-	static function convertAbstract(a:Definition<haxeparser.AbstractFlag, Array<Field>>) {
+	static function convertAbstract(a:Definition<haxeparser.Data.AbstractFlag, Array<Field>>) {
 		var def = getGeneralDefinition(a);
 		var to = [];
 		var from = [];

@@ -686,7 +686,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseAbstract (doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:haxeparser.AbstractFlag, s:StaticFlag, t:TypedefFlag, pos:Position}>, p1) {
+	function parseAbstract (doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:haxeparser.Data.AbstractFlag, s:StaticFlag, t:TypedefFlag, pos:Position}>, p1) {
 		return switch stream {
 			case [name = typeName(), tl = parseConstraintParams(), st = parseAbstractSubtype(), sl = parseRepeat(parseAbstractRelations)]:
 				var fl = switch stream {
@@ -708,7 +708,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseClassContent(doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:haxeparser.AbstractFlag, s:StaticFlag, t:TypedefFlag, pos:Position}>, n, p1) {
+	function parseClassContent(doc, meta, flags:Array<{c:ClassFlag, e:EnumFlag, a:haxeparser.Data.AbstractFlag, s:StaticFlag, t:TypedefFlag, pos:Position}>, n, p1) {
 		var name = typeName();
 		var tl = parseConstraintParams();
 		var hl = parseRepeat(parseClassHerit);
@@ -756,7 +756,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 							flags: c.map(function(i) return i.s),
 							data: FFun(f)
 						}), pos: punion(p1, e.pos)};
-						case [{tok:Kwd(KwdVar), pos:p1}, name = dollarIdent()]:
+					case [{tok:Kwd(KwdVar), pos:p1}, name = dollarIdent()]:
 							switch stream {
 								case [{tok:POpen}, i1 = propertyIdent(), {tok:Comma}, i2 = propertyIdent(), {tok:PClose}]:
 									var t = parseTypeOpt();
@@ -944,7 +944,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		}
 	}
 
-	function parseAbstractRelations():haxeparser.AbstractFlag {
+	function parseAbstractRelations():haxeparser.Data.AbstractFlag {
 		return switch stream {
 			case [{tok:Const(CIdent("to"))}, t = parseComplexType()]: AbTo(t);
 			case [{tok:Const(CIdent("from"))}, t = parseComplexType()]: AbFrom(t);
@@ -979,7 +979,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 		return parseRepeat(parseClassField);
 	}
 
-	function parseCommonFlags():Array<{c:ClassFlag, e:EnumFlag, a:haxeparser.AbstractFlag, s:StaticFlag, t:TypedefFlag, pos:Position}> {
+	function parseCommonFlags():Array<{c:ClassFlag, e:EnumFlag, a:haxeparser.Data.AbstractFlag, s:StaticFlag, t:TypedefFlag, pos:Position}> {
 		return switch stream {
 			case [{tok:Kwd(KwdPrivate), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HPrivate, e:EPrivate, a:AbPrivate, s:SPrivate, t:TDPrivate, pos:p});
 			case [{tok:Kwd(KwdExtern), pos:p}, l = parseCommonFlags()]: aunshift(l, {c:HExtern, e:EExtern, a:AbExtern, s:null, t:TDExtern, pos:p});
@@ -1182,7 +1182,7 @@ class HaxeParser extends hxparse.Parser<HaxeTokenSource, Token> implements hxpar
 	}
 
 
-	function parseTypePath2(pack:Array<String>, ident) {
+	function parseTypePath2(pack:Array<String>, ident):TypePath {
 		if (isLowerIdent(ident.name)) {
 			return switch stream {
 				case [{tok:Dot}]:
@@ -2578,7 +2578,7 @@ private class Reificator{
 	}
 }
 
-function mapConstant(c:haxeparser.Constant, p:haxe.macro.Position):haxe.macro.Expr {
+function mapConstant(c:haxeparser.Data.Constant, p:Position):haxe.macro.Expr {
 	var constant:haxe.macro.Expr.Constant = switch (c) {
 		case CInt(v, s):
 			CInt(v, s);
